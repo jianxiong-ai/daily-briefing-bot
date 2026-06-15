@@ -1,0 +1,41 @@
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+*.cookie
+*.cookies
+*cookie*
+secrets/
+
+# Runtime caches and generated reports
+*.log
+logs/
+*.jsonl
+*_cache.json
+redfox_raw_cache.json
+original_article_cache.json
+weibo_hot_history.jsonl
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Local launchd/test artifacts
+work/**/*.plist
+work/**/run_*_appsupport.sh
+work/**/run_*_test.sh
+work/**/run_weibo_daily.sh
