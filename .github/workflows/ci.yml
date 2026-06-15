@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python files
+        run: |
+          python -m py_compile \
+            work/daily_image.py \
+            work/ai_daily/ai_daily.py \
+            work/cctv_daily/cctv_daily.py \
+            work/douyin_daily/douyin_daily.py \
+            work/wechat_daily/wechat_daily.py \
+            work/weibo_daily/weibo_daily.py \
+            work/zsxq_daily/zsxq_daily.py
+      - name: Run smoke tests
+        run: python -m unittest discover -s tests
