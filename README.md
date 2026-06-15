@@ -51,9 +51,14 @@ deploy/
 ## Quick Start
 
 1. Clone the repository.
-2. Copy an example env file for the report you want to run.
-3. Fill in only the credentials required by that report.
-4. Run in render-only mode first.
+2. Install Python dependencies.
+3. Copy an example env file for the report you want to run.
+4. Fill in only the credentials required by that report.
+5. Run in render-only mode first.
+
+```bash
+python3 -m pip install -r requirements.txt
+```
 
 Example:
 
