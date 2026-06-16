@@ -103,6 +103,14 @@ Some reports depend on authenticated cookies or third-party paid APIs. The
 project does not include credentials. You are responsible for complying with the
 terms of service of every data source you configure.
 
+## Local Checks
+
+Run the same smoke checks used by CI:
+
+```bash
+make check
+```
+
 ## Development Status
 
 The current implementation is functional but still evolving. Near-term cleanup:
