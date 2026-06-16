@@ -2,13 +2,13 @@
 set -eu
 
 APP_DIR="${APP_DIR:-$HOME/Library/Application Support/DailyBriefingBot/example_report}"
+PROJECT_DIR="${PROJECT_DIR:-$HOME/src/daily-briefing-bot}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-REPORT_SCRIPT="${REPORT_SCRIPT:-report.py}"
-ENV_VAR_NAME="${ENV_VAR_NAME:-REPORT_ENV}"
+REPORT_NAME="${REPORT_NAME:-cctv}"
 ENV_FILE="${ENV_FILE:-$APP_DIR/.env}"
 LOG_DIR="$APP_DIR/logs"
 mkdir -p "$LOG_DIR"
-cd "$APP_DIR"
+cd "$PROJECT_DIR"
 
 if [[ -f "$ENV_FILE" ]]; then
   set -a
@@ -16,5 +16,4 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-export "$ENV_VAR_NAME=$ENV_FILE"
-exec "$PYTHON_BIN" "$APP_DIR/$REPORT_SCRIPT" >> "$LOG_DIR/report.log" 2>&1
+exec "$PYTHON_BIN" -m daily_briefing.cli run "$REPORT_NAME" --env "$ENV_FILE" >> "$LOG_DIR/report.log" 2>&1

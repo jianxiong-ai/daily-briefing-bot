@@ -8,7 +8,7 @@ Each report has:
 
 - A script under `work/<report>/`.
 - A `.env` file with credentials and runtime configuration.
-- A wrapper script that loads env, checks network, then runs Python.
+- A wrapper script that loads env, then runs `python3 -m daily_briefing.cli`.
 - A launchd plist generated from `deploy/launchd/*.plist.example`.
 
 For open-source use, always replace labels, script names, and paths with your
@@ -50,6 +50,10 @@ mkdir -p "$APP_DIR" "$HOME/Library/LaunchAgents"
 
 cp deploy/launchd/run_report.sh.example "$APP_DIR/run_report.sh"
 chmod +x "$APP_DIR/run_report.sh"
+
+# Edit run_report.sh and set:
+# PROJECT_DIR="$HOME/src/daily-briefing-bot"
+# REPORT_NAME="cctv"
 
 sed \
   -e "s#__LABEL__#com.example.cctv-daily#g" \

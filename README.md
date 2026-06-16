@@ -41,6 +41,7 @@ docs/
   architecture.md
   configuration.md
   deployment-launchd.md
+  running-reports.md
   security.md
 examples/
   env/
@@ -64,10 +65,10 @@ Example:
 
 ```bash
 cp examples/env/wechat_daily.env.example work/wechat_daily/.env
-WECHAT_DAILY_ENV=work/wechat_daily/.env \
-RENDER_ONLY=1 \
-RENDER_OUTPUT=/tmp/wechat_daily.png \
-python3 work/wechat_daily/wechat_daily.py
+python3 -m daily_briefing.cli run wechat \
+  --env work/wechat_daily/.env \
+  --render-only \
+  --output /tmp/wechat_daily.png
 ```
 
 When the image looks correct, configure push targets and run without
@@ -81,6 +82,7 @@ logs, and generated images are intentionally ignored by git.
 Start with:
 
 - [Configuration Guide](docs/configuration.md)
+- [Running Reports](docs/running-reports.md)
 - [macOS launchd Deployment](docs/deployment-launchd.md)
 - [Security Guide](docs/security.md)
 

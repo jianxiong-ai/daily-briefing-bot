@@ -1,6 +1,8 @@
 import importlib.util
 import pathlib
 import unittest
+from io import StringIO
+from contextlib import redirect_stdout
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -38,6 +40,32 @@ class SmokeTests(unittest.TestCase):
             text = (ROOT / "deploy/launchd" / name).read_text(encoding="utf-8")
             self.assertIn("__LABEL__", text)
             self.assertIn("__APP_DIR__", text)
+
+    def test_report_registry_points_to_existing_scripts_and_examples(self):
+        from daily_briefing.reports import REPORTS
+
+        self.assertIn("wechat", REPORTS)
+        for report in REPORTS.values():
+            with self.subTest(report=report.name):
+                self.assertTrue(report.script.exists(), report.script)
+                self.assertTrue(report.example_env.exists(), report.example_env)
+                self.assertTrue(report.env_var.endswith("_DAILY_ENV"))
+
+    def test_cli_lists_reports(self):
+        from daily_briefing.cli import main
+
+        output = StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(main(["list"]), 0)
+        self.assertIn("wechat", output.getvalue())
+
+    def test_cli_require_env_fails_before_running_report(self):
+        from daily_briefing.cli import main
+
+        missing_env = ROOT / "work/wechat_daily/__missing__.env"
+        with self.assertRaises(SystemExit) as raised:
+            main(["run", "wechat", "--env", str(missing_env), "--require-env"])
+        self.assertIn("Env file not found", str(raised.exception))
 
 
 if __name__ == "__main__":

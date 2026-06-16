@@ -54,10 +54,11 @@ Do not commit real `.env` files. Use files under `examples/env/` as templates.
 Render-only mode is the safest way to test formatting and content:
 
 ```bash
-RENDER_ONLY=1 \
-RENDER_OUTPUT=/tmp/report.png \
-DIGEST_DATE=2026-06-13 \
-python3 work/cctv_daily/cctv_daily.py
+python3 -m daily_briefing.cli run cctv \
+  --env work/cctv_daily/.env \
+  --render-only \
+  --date 2026-06-13 \
+  --output /tmp/report.png
 ```
 
 No robot message should be sent in render-only mode.
