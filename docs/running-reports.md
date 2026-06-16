@@ -49,6 +49,9 @@ python3 -m daily_briefing.cli run cctv \
 
 ## Available Report Names
 
+For data sources, env variables, and scheduling notes, see the
+[Report Matrix](report-matrix.md).
+
 | Name | Report |
 | --- | --- |
 | `ai` | AI industry briefing |

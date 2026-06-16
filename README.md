@@ -41,6 +41,7 @@ docs/
   architecture.md
   configuration.md
   deployment-launchd.md
+  report-matrix.md
   running-reports.md
   security.md
 examples/
@@ -83,6 +84,7 @@ Start with:
 
 - [Configuration Guide](docs/configuration.md)
 - [Running Reports](docs/running-reports.md)
+- [Report Matrix](docs/report-matrix.md)
 - [macOS launchd Deployment](docs/deployment-launchd.md)
 - [Security Guide](docs/security.md)
 
