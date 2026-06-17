@@ -10,17 +10,17 @@
 
 ## v0.2.0 - Shared Core
 
+- Keep the unified CLI and runtime helpers stable.
 - Extract a shared LLM client with retry, timeout, cache, and multi-key support.
 - Extract Feishu and WeCom push clients.
 - Extract RedFox request and cache helpers.
 - Normalize report section data before image rendering.
-- Add unit tests for env parsing, cache keys, and fallback summaries.
+- Add unit tests for cache keys and fallback summaries.
 
 ## v0.3.0 - Deployment Options
 
 - Add Docker examples.
 - Add cron/systemd examples.
-- Add a simple CLI entrypoint for selecting report type and mode.
 - Add sample GitHub Actions workflow for lint and tests.
 
 ## v0.4.0 - Extensibility

@@ -1,14 +1,14 @@
 # Architecture
 
-Daily Briefing Bot is organized as a set of report-specific scripts plus a small
-shared rendering layer.
+Daily Briefing Bot is organized as a thin CLI, report-specific scripts, and a
+small shared core for runtime helpers and image rendering.
 
 ## Layers
 
 1. **Schedule Layer**
-   - macOS `launchd` starts each report script a few minutes before the desired
-     delivery time.
-   - Each script can also wait until `SEND_AT_LOCAL` before pushing.
+   - macOS `launchd` can call `python3 -m daily_briefing.cli run <report>`.
+   - The CLI sets report-specific env paths and common runtime flags.
+   - Reports can still wait until `SEND_AT_LOCAL` before pushing.
 
 2. **Data Layer**
    - Source adapters fetch data from Weibo, Knowledge Planet, CCTV, RedFox, or
@@ -32,6 +32,16 @@ shared rendering layer.
    - Sends markdown text to WeCom.
    - Supports `PUSH_TARGETS=primary` for test or limited delivery.
 
+## Shared Core
+
+- `daily_briefing.cli`: the recommended command-line entrypoint for listing and
+  running reports.
+- `daily_briefing.reports`: registry of report names, scripts, default env files,
+  and example env templates.
+- `daily_briefing.runtime`: shared helpers for `.env` loading, robot list parsing,
+  primary-target selection, boolean parsing, and local send-time waiting.
+- `work/daily_image.py`: shared image report renderer and Feishu image helpers.
+
 ## Report Modules
 
 - `work/weibo_daily`: Weibo hot-topic and blogger digest.
@@ -43,10 +53,9 @@ shared rendering layer.
 
 ## Current Refactor Opportunities
 
-The scripts intentionally started independently. The next cleanup step is to
-extract duplicated code into shared modules:
+The scripts intentionally started independently. Runtime helpers and CLI routing
+have now been extracted. The remaining cleanup opportunities are:
 
-- Env loading and validation
 - LLM client and cache
 - RedFox client and cache
 - Feishu/WeCom push clients
