@@ -1,8 +1,10 @@
 import importlib.util
+import os
 import pathlib
 import unittest
 from io import StringIO
 from contextlib import redirect_stdout
+from unittest.mock import patch
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -66,6 +68,57 @@ class SmokeTests(unittest.TestCase):
         with self.assertRaises(SystemExit) as raised:
             main(["run", "wechat", "--env", str(missing_env), "--require-env"])
         self.assertIn("Env file not found", str(raised.exception))
+
+    def test_cli_run_sets_common_environment_flags(self):
+        from daily_briefing.cli import main
+
+        env_path = ROOT / "examples/env/wechat_daily.env.example"
+        keys = [
+            "WECHAT_DAILY_ENV",
+            "RENDER_ONLY",
+            "RENDER_OUTPUT",
+            "DIGEST_DATE",
+            "PUSH_TARGETS",
+            "SEND_AT_LOCAL",
+        ]
+        old_values = {key: os.environ.get(key) for key in keys}
+        try:
+            for key in keys:
+                os.environ.pop(key, None)
+            with patch("daily_briefing.cli.runpy.run_path") as run_path:
+                self.assertEqual(
+                    main(
+                        [
+                            "run",
+                            "wechat",
+                            "--env",
+                            str(env_path),
+                            "--render-only",
+                            "--output",
+                            "/tmp/wechat.png",
+                            "--date",
+                            "2026-06-13",
+                            "--push-targets",
+                            "primary",
+                            "--send-at",
+                            "",
+                        ]
+                    ),
+                    0,
+                )
+            run_path.assert_called_once()
+            self.assertEqual(os.environ["WECHAT_DAILY_ENV"], str(env_path))
+            self.assertEqual(os.environ["RENDER_ONLY"], "1")
+            self.assertEqual(os.environ["RENDER_OUTPUT"], "/tmp/wechat.png")
+            self.assertEqual(os.environ["DIGEST_DATE"], "2026-06-13")
+            self.assertEqual(os.environ["PUSH_TARGETS"], "primary")
+            self.assertEqual(os.environ["SEND_AT_LOCAL"], "")
+        finally:
+            for key, value in old_values.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
 
 
 if __name__ == "__main__":
