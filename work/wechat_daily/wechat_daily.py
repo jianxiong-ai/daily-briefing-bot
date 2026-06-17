@@ -14,7 +14,16 @@ from multiprocessing import Process, Queue
 from threading import BoundedSemaphore, Lock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from daily_briefing.runtime import (
+    load_env_file as runtime_load_env_file,
+    parse_webhook_robots as runtime_parse_webhook_robots,
+    selected_robots as runtime_selected_robots,
+    wait_until_local_time,
+)
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -23,58 +32,20 @@ except Exception:
     upload_feishu_image = None
 
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ENV_PATH = os.environ.get("WECHAT_DAILY_ENV", os.path.join(ROOT_DIR, "work/wechat_daily/.env"))
 SHARED_ENV_PATH = os.environ.get("SHARED_DAILY_ENV", "").strip()
 
 
 def load_env_file(path, override=False):
-    if not path or not os.path.exists(path):
-        return
-    with open(path, "r", encoding="utf-8") as env_file:
-        for raw_line in env_file:
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip("\"'")
-            if key and (override or key not in os.environ):
-                os.environ[key] = value
+    return runtime_load_env_file(path, override=override)
 
 
 def parse_webhook_robots(value, primary_url="", primary_name="主机器人"):
-    robots = []
-    if primary_url:
-        robots.append({"name": primary_name, "url": primary_url.strip(), "primary": True})
-    for index, raw_entry in enumerate((value or "").split(";"), start=1):
-        entry = raw_entry.strip()
-        if not entry:
-            continue
-        parts = [part.strip() for part in entry.split("|")]
-        if len(parts) >= 2:
-            name, url = parts[0], parts[1]
-            flags = {part.lower() for part in parts[2:]}
-        else:
-            name, url, flags = f"机器人{index}", parts[0], set()
-        if not url:
-            continue
-        robots.append({"name": name or f"机器人{index}", "url": url, "primary": "primary" in flags or "主" in flags})
-    seen = set()
-    result = []
-    for robot in robots:
-        if robot["url"] in seen:
-            continue
-        seen.add(robot["url"])
-        result.append(robot)
-    return result
+    return runtime_parse_webhook_robots(value, primary_url, primary_name)
 
 
 def selected_robots(robots):
-    if PUSH_TARGETS in {"primary", "main", "test"}:
-        primary = [robot for robot in robots if robot.get("primary")]
-        return primary or robots[:1]
-    return robots
+    return runtime_selected_robots(robots, PUSH_TARGETS)
 
 
 load_env_file(SHARED_ENV_PATH, override=False)
@@ -268,18 +239,7 @@ load_llm_cache()
 
 
 def wait_until_send_time():
-    if not SEND_AT_LOCAL:
-        return
-    match = re.fullmatch(r"(\d{1,2}):(\d{2})", SEND_AT_LOCAL)
-    if not match:
-        raise ValueError(f"Invalid SEND_AT_LOCAL: {SEND_AT_LOCAL}")
-    now = shanghai_now()
-    target = now.replace(hour=int(match.group(1)), minute=int(match.group(2)), second=0, microsecond=0)
-    if now >= target:
-        return
-    seconds = (target - now).total_seconds()
-    log_progress(f"waiting until {SEND_AT_LOCAL}, seconds={int(seconds)}")
-    time.sleep(seconds)
+    wait_until_local_time(SEND_AT_LOCAL, shanghai_now, time.sleep, log_progress, strict=True)
 
 
 def parse_follow_authors(value):
