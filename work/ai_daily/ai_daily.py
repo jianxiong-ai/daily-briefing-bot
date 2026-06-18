@@ -28,6 +28,12 @@ from daily_briefing.push import (
     truncate_utf8_plain as push_truncate_utf8_plain,
     wechat_work_markdown as push_wechat_work_markdown,
 )
+from daily_briefing.llm import (
+    JsonlSummaryCache,
+    cache_key as shared_cache_key,
+    chat_completion_text,
+    split_api_keys,
+)
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -89,13 +95,7 @@ LOG_PROGRESS = os.environ.get("LOG_PROGRESS", "1").strip() != "0"
 
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "deepseek").strip().lower()
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-DEEPSEEK_API_KEYS = [
-    value.strip()
-    for value in os.environ.get("DEEPSEEK_API_KEYS", "").replace("\n", ",").split(",")
-    if value.strip()
-]
-if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY not in DEEPSEEK_API_KEYS:
-    DEEPSEEK_API_KEYS.insert(0, DEEPSEEK_API_KEY)
+DEEPSEEK_API_KEYS = split_api_keys(DEEPSEEK_API_KEY, os.environ.get("DEEPSEEK_API_KEYS", ""))
 DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
 DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro").strip()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
@@ -112,6 +112,7 @@ SH_TZ = timezone(timedelta(hours=8))
 REDFOX_CACHE_LOCK = Lock()
 LLM_SEMAPHORE = BoundedSemaphore(max(1, LLM_MAX_CONCURRENT_REQUESTS))
 LLM_CACHE = {}
+LLM_CACHE_STORE = JsonlSummaryCache(LLM_CACHE_FILE, LLM_CACHE_TTL_SECONDS, LLM_CACHE_ENABLED, LLM_CACHE)
 
 
 def log_progress(message):
@@ -367,64 +368,32 @@ def current_model_name():
 
 
 def load_llm_cache():
-    if not LLM_CACHE_ENABLED or not os.path.exists(LLM_CACHE_FILE):
-        return
     try:
-        with open(LLM_CACHE_FILE, "r", encoding="utf-8") as cache_file:
-            for line in cache_file:
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                key = record.get("key")
-                if key:
-                    LLM_CACHE[key] = record
+        LLM_CACHE_STORE.load()
     except OSError:
         return
 
 
 def cache_key(kind, payload):
-    identity = {
-        "kind": kind,
-        "provider": LLM_PROVIDER,
-        "model": current_model_name(),
-        "prompt_version": LLM_PROMPT_VERSION,
-        "payload": payload,
-    }
-    return sha256_text(json.dumps(identity, ensure_ascii=False, sort_keys=True))
+    return shared_cache_key(kind, payload, LLM_PROVIDER, current_model_name(), LLM_PROMPT_VERSION)
 
 
 def get_cached_summary(kind, payload):
-    if not LLM_CACHE_ENABLED:
-        return None
-    record = LLM_CACHE.get(cache_key(kind, payload))
-    if not record:
-        return None
-    age = time.time() - float(record.get("created_at", 0) or 0)
-    if age > LLM_CACHE_TTL_SECONDS:
-        return None
-    log_progress(f"llm cache hit kind={kind}")
-    return record.get("value")
+    value = LLM_CACHE_STORE.get(cache_key(kind, payload))
+    if value is not None:
+        log_progress(f"llm cache hit kind={kind}")
+    return value
 
 
 def set_cached_summary(kind, payload, value):
-    if not LLM_CACHE_ENABLED or value is None:
-        return
     key = cache_key(kind, payload)
-    record = {
-        "key": key,
-        "kind": kind,
-        "created_at": time.time(),
+    metadata = {
         "date": digest_day().strftime("%Y-%m-%d"),
         "provider": LLM_PROVIDER,
         "model": current_model_name(),
         "prompt_version": LLM_PROMPT_VERSION,
-        "value": value,
     }
-    LLM_CACHE[key] = record
-    os.makedirs(os.path.dirname(LLM_CACHE_FILE), exist_ok=True)
-    with open(LLM_CACHE_FILE, "a", encoding="utf-8") as cache_file:
-        cache_file.write(json.dumps(record, ensure_ascii=False) + "\n")
+    LLM_CACHE_STORE.set(key, kind, value, metadata=metadata)
 
 
 load_llm_cache()
@@ -433,37 +402,31 @@ load_llm_cache()
 def run_llm_request(prompt, response_format):
     if LLM_PROVIDER == "deepseek":
         api_keys = DEEPSEEK_API_KEYS
-        url = f"{DEEPSEEK_BASE_URL}/chat/completions"
+        base_url = DEEPSEEK_BASE_URL
         model = DEEPSEEK_MODEL
     else:
         api_keys = [OPENAI_API_KEY] if OPENAI_API_KEY else []
-        url = "https://api.openai.com/v1/chat/completions"
+        base_url = "https://api.openai.com/v1"
         model = OPENAI_MODEL
     if not api_keys:
         raise RuntimeError("missing LLM API key")
     key = api_keys[int(time.time() * 1000) % len(api_keys)]
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "你是严谨的 AI 行业信息分析助手，只根据输入内容总结，输出有效 JSON。"},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.2,
-        "response_format": {"type": "json_object"},
-    }
-    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
-        method="POST",
-    )
     start = time.time()
     with LLM_SEMAPHORE:
-        with urllib.request.urlopen(req, timeout=LLM_TIMEOUT_SECONDS) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
+        text = chat_completion_text(
+            base_url=base_url,
+            api_key=key,
+            model=model,
+            messages=[
+            {"role": "system", "content": "你是严谨的 AI 行业信息分析助手，只根据输入内容总结，输出有效 JSON。"},
+            {"role": "user", "content": prompt},
+            ],
+            timeout=LLM_TIMEOUT_SECONDS,
+            temperature=0.2,
+            response_format={"type": "json_object"},
+        )
     log_progress(f"llm request ok seconds={time.time() - start:.1f} prompt_chars={len(prompt)}")
-    return body["choices"][0]["message"]["content"]
+    return text
 
 
 def llm_request_worker(prompt, response_format, queue):
