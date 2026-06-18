@@ -4,8 +4,11 @@ The repository keeps each report as a standalone script, but the recommended
 entry point is the lightweight CLI wrapper:
 
 ```bash
-python3 -m daily_briefing.cli list
+daily-briefing list
 ```
+
+If the package is not installed, use `python3 -m daily_briefing.cli list` from
+the repository root.
 
 ## Render Without Sending
 
@@ -13,7 +16,7 @@ Render-only mode is the safest way to inspect output before configuring robot
 delivery:
 
 ```bash
-python3 -m daily_briefing.cli run wechat \
+daily-briefing run wechat \
   --env work/wechat_daily/.env \
   --render-only \
   --date 2026-06-13 \
@@ -27,7 +30,7 @@ This sets `RENDER_ONLY=1` and should not send Feishu or WeCom messages.
 After filling the env file:
 
 ```bash
-python3 -m daily_briefing.cli run cctv \
+daily-briefing run cctv \
   --env work/cctv_daily/.env \
   --push-targets primary
 ```
@@ -40,7 +43,7 @@ Some scripts support `SEND_AT_LOCAL` and wait until the configured delivery
 time. To avoid waiting during a manual run:
 
 ```bash
-python3 -m daily_briefing.cli run cctv \
+daily-briefing run cctv \
   --env work/cctv_daily/.env \
   --send-at "" \
   --render-only \

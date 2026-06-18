@@ -19,7 +19,7 @@ test:
 	PYTHONPYCACHEPREFIX="$(PYCACHE)" $(PYTHON) -m unittest discover -s tests
 
 secret-scan:
-	@rg -n --hidden \
+	@matches="$$(rg -n --hidden \
 		--glob '!**/.git/**' \
 		--glob '!examples/env/**' \
 		--glob '!work/**/*.env.example' \
@@ -31,9 +31,12 @@ secret-scan:
 		--glob '!**/.DS_Store' \
 		--glob '!Makefile' \
 		'$(SECRET_PATTERN)' . \
-		| rg -v '^(./)?(SECURITY.md|docs/security.md|docs/open-source-release-checklist.md):' \
-		&& { echo "Potential secret detected."; exit 1; } \
-		|| true
+		| rg -v '^(./)?(SECURITY.md|docs/security.md|docs/open-source-release-checklist.md):' || true)"; \
+	if [ -n "$$matches" ]; then \
+		printf '%s\n' "$$matches"; \
+		echo "Potential secret detected."; \
+		exit 1; \
+	fi
 
 list-reports:
 	$(PYTHON) -m daily_briefing.cli list

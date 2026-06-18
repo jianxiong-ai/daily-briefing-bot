@@ -60,14 +60,22 @@ deploy/
 5. Run in render-only mode first.
 
 ```bash
+python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
+```
+
+For local development, editable install is also supported:
+
+```bash
+python3 -m pip install -e .
+daily-briefing list
 ```
 
 Example:
 
 ```bash
 cp examples/env/wechat_daily.env.example work/wechat_daily/.env
-python3 -m daily_briefing.cli run wechat \
+daily-briefing run wechat \
   --env work/wechat_daily/.env \
   --render-only \
   --output /tmp/wechat_daily.png
@@ -115,12 +123,12 @@ make check
 
 ## Development Status
 
-The current implementation is functional but still evolving. Near-term cleanup:
+The current implementation is functional and ready for a `0.1.0` open-source
+preview. It includes shared CLI/runtime helpers, push helpers, LLM primitives,
+RedFox request/cache helpers, smoke tests, and macOS launchd examples.
 
-- Extract shared LLM, cache, robot, and scheduling helpers.
-- Add tests around config parsing, cache keys, and render-only mode.
-- Add Docker or cross-platform scheduler examples.
-- Add clearer provider interfaces for new report types.
+The next milestones focus on portable deployment options, clearer provider
+interfaces, and more shared report data models. See [ROADMAP.md](ROADMAP.md).
 
 ## License
 

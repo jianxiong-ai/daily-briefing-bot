@@ -28,6 +28,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+*.egg-info/
 
 # macOS / editors
 .DS_Store
