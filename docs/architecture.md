@@ -40,6 +40,10 @@ small shared core for runtime helpers and image rendering.
   and example env templates.
 - `daily_briefing.runtime`: shared helpers for `.env` loading, robot list parsing,
   primary-target selection, boolean parsing, and local send-time waiting.
+- `daily_briefing.push`: shared Feishu card/image message helpers, WeCom markdown
+  formatting, truncation, and push-result aggregation primitives.
+- `daily_briefing.llm`: shared LLM primitives for API key rotation, cache keys,
+  JSONL summary cache, and OpenAI-compatible chat-completion requests.
 - `work/daily_image.py`: shared image report renderer and Feishu image helpers.
 
 ## Report Modules
@@ -53,11 +57,12 @@ small shared core for runtime helpers and image rendering.
 
 ## Current Refactor Opportunities
 
-The scripts intentionally started independently. Runtime helpers and CLI routing
-have now been extracted. The remaining cleanup opportunities are:
+The scripts intentionally started independently. CLI routing, runtime helpers,
+and first-stage push helpers have now been extracted. The remaining cleanup
+opportunities are:
 
-- LLM client and cache
+- Gradually adopt the shared LLM primitives in report scripts
 - RedFox client and cache
-- Feishu/WeCom push clients
+- Further reduce duplicated notification-loop error handling
 - launchd template generation
 - report section data model
