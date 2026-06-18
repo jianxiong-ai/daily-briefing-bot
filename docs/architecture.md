@@ -44,6 +44,8 @@ small shared core for runtime helpers and image rendering.
   formatting, truncation, and push-result aggregation primitives.
 - `daily_briefing.llm`: shared LLM primitives for API key rotation, cache keys,
   JSONL summary cache, and OpenAI-compatible chat-completion requests.
+- `daily_briefing.redfox`: shared RedFox POST helper, public-payload filtering,
+  stable raw-cache keys, and bounded JSON cache storage.
 - `work/daily_image.py`: shared image report renderer and Feishu image helpers.
 
 ## Report Modules
@@ -58,11 +60,11 @@ small shared core for runtime helpers and image rendering.
 ## Current Refactor Opportunities
 
 The scripts intentionally started independently. CLI routing, runtime helpers,
-and first-stage push helpers have now been extracted. The remaining cleanup
-opportunities are:
+push helpers, LLM primitives, and RedFox request/cache helpers have now been
+extracted. The remaining cleanup opportunities are:
 
-- Gradually adopt the shared LLM primitives in report scripts
-- RedFox client and cache
-- Further reduce duplicated notification-loop error handling
+- Continue adopting shared LLM primitives in the larger WeChat, Weibo, and ZSXQ
+  scripts where it can be done without changing report output.
+- Further reduce duplicated notification-loop error handling.
 - launchd template generation
 - report section data model

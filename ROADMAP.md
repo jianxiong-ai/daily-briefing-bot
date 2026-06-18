@@ -11,10 +11,10 @@
 ## v0.2.0 - Shared Core
 
 - Keep the unified CLI and runtime helpers stable.
-- Adopt shared LLM primitives across report scripts, including retry, timeout,
-  cache, and multi-key behavior.
-- Continue consolidating Feishu and WeCom notification loops.
-- Extract RedFox request and cache helpers.
+- Continue adopting shared LLM primitives in the larger report scripts, including
+  retry, timeout, cache, and multi-key behavior.
+- Keep Feishu and WeCom notification loops on the shared push helpers.
+- Keep RedFox-backed reports on the shared request and raw-cache helpers.
 - Normalize report section data before image rendering.
 - Add unit tests for cache keys and fallback summaries.
 
