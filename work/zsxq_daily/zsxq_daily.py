@@ -23,6 +23,13 @@ from daily_briefing.runtime import (
     selected_robots as runtime_selected_robots,
     wait_until_local_time,
 )
+from daily_briefing.push import (
+    build_wechat_content as push_build_wechat_content,
+    send_feishu_card as push_send_feishu_card,
+    send_wechat_work_markdown as push_send_wechat_work_markdown,
+    truncate_utf8_plain as push_truncate_utf8_plain,
+    wechat_work_markdown as push_wechat_work_markdown,
+)
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -1576,30 +1583,7 @@ def build_daily_lines(topics, essence_topics, fetch_status=None):
 
 
 def send_feishu_card(webhook, essence_lines, topic_lines, today, title_name):
-    payload = {
-        "msg_type": "interactive",
-        "card": {
-            "config": {"wide_screen_mode": True},
-            "header": {
-                "template": "blue",
-                "title": {"tag": "plain_text", "content": f"知识星球日报 {title_name} {today}"},
-            },
-            "elements": [
-                {"tag": "markdown", "content": "\n".join(essence_lines)},
-                {"tag": "hr"},
-                {"tag": "markdown", "content": "\n".join(topic_lines)},
-            ],
-        },
-    }
-    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        webhook,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        sys.stdout.write(resp.read().decode("utf-8"))
+    return push_send_feishu_card(webhook, f"知识星球日报 {title_name} {today}", [essence_lines, topic_lines])
 
 
 def build_feishu_image_key(title, sections):
@@ -1616,9 +1600,7 @@ def build_feishu_image_key(title, sections):
 
 
 def wechat_work_markdown(value):
-    value = re.sub(r"</?font\b[^>]*>", "", value)
-    value = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", value)
-    return value
+    return push_wechat_work_markdown(value)
 
 
 def truncate_utf8(value, max_bytes):
@@ -1631,10 +1613,7 @@ def truncate_utf8(value, max_bytes):
 
 
 def truncate_utf8_plain(value, max_bytes):
-    data = value.encode("utf-8")
-    if len(data) <= max_bytes:
-        return value
-    return data[:max_bytes].decode("utf-8", errors="ignore").rstrip() + "..."
+    return push_truncate_utf8_plain(value, max_bytes)
 
 
 def wechat_line(value):
@@ -1647,49 +1626,11 @@ def wechat_line(value):
 
 
 def build_wechat_content(title, sections, max_bytes=3900):
-    suffix = "\n\n其余内容见飞书完整版。"
-    budget = max_bytes - len(suffix.encode("utf-8"))
-    lines = [f"**{title}**"]
-    omitted = False
-    for section_index, section in enumerate(sections):
-        if section_index:
-            candidate = lines + [""]
-            if len("\n".join(candidate).encode("utf-8")) <= budget:
-                lines = candidate
-        for raw_line in section:
-            line = wechat_line(raw_line)
-            if not line:
-                continue
-            candidate = lines + [line]
-            if len("\n".join(candidate).encode("utf-8")) > budget:
-                omitted = True
-                break
-            lines = candidate
-        if omitted:
-            break
-    content = "\n".join(lines)
-    if omitted:
-        content += suffix
-    return content
+    return push_build_wechat_content(title, sections, max_bytes=max_bytes, skip_prefixes=("原文：",))
 
 
 def send_wechat_work_markdown(webhook, title, sections):
-    content = build_wechat_content(title, sections)
-    payload = {
-        "msgtype": "markdown",
-        "markdown": {
-            "content": content,
-        },
-    }
-    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        webhook,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        sys.stdout.write(resp.read().decode("utf-8"))
+    return push_send_wechat_work_markdown(webhook, title, sections, skip_prefixes=("原文：",))
 
 
 def main():
