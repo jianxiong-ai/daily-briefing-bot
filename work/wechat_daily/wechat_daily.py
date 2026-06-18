@@ -31,6 +31,10 @@ from daily_briefing.push import (
     truncate_utf8_plain as push_truncate_utf8_plain,
     wechat_work_markdown as push_wechat_work_markdown,
 )
+from daily_briefing.redfox import (
+    RawJsonCache,
+    post_json as shared_redfox_post_json,
+)
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -127,6 +131,7 @@ LLM_SEMAPHORE = BoundedSemaphore(max(1, LLM_MAX_CONCURRENT_REQUESTS))
 DEEPSEEK_KEY_LOCK = Lock()
 DEEPSEEK_KEY_INDEX = 0
 REDFOX_CACHE_LOCK = Lock()
+REDFOX_CACHE_STORE = RawJsonCache(REDFOX_RAW_CACHE_FILE, max_entries=120)
 
 APP_DATA_DIR = os.path.dirname(ENV_PATH) if ENV_PATH else os.getcwd()
 LLM_CACHE_FILE = os.environ.get("WECHAT_LLM_CACHE_FILE", os.path.join(APP_DATA_DIR, "llm_summary_cache.jsonl"))
@@ -267,20 +272,13 @@ WECHAT_FOLLOW_AUTHORS = parse_follow_authors(os.environ.get("WECHAT_FOLLOW_AUTHO
 
 
 def redfox_post_json(url, payload):
-    send_payload = {key: value for key, value in payload.items() if not key.startswith("_")}
-    data = json.dumps(send_payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
+    return shared_redfox_post_json(
         url,
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "X-API-Key": REDFOX_API_KEY,
-            "User-Agent": "Codex-WechatDaily/0.1",
-        },
-        method="POST",
+        payload,
+        REDFOX_API_KEY,
+        timeout=REDFOX_TIMEOUT_SECONDS,
+        user_agent="Codex-WechatDaily/0.1",
     )
-    with urllib.request.urlopen(req, timeout=REDFOX_TIMEOUT_SECONDS) as resp:
-        return json.loads(resp.read().decode("utf-8"))
 
 
 def fetch_redfox_hot_articles():
@@ -430,21 +428,11 @@ def redfox_cache_key(payload):
 
 
 def load_redfox_raw_cache():
-    if not os.path.exists(REDFOX_RAW_CACHE_FILE):
-        return {}
-    try:
-        with open(REDFOX_RAW_CACHE_FILE, "r", encoding="utf-8") as cache_file:
-            data = json.load(cache_file)
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return data if isinstance(data, dict) else {}
+    return REDFOX_CACHE_STORE.load()
 
 
 def save_redfox_raw_cache(cache):
-    os.makedirs(os.path.dirname(REDFOX_RAW_CACHE_FILE), exist_ok=True)
-    trimmed = dict(list(cache.items())[-120:])
-    with open(REDFOX_RAW_CACHE_FILE, "w", encoding="utf-8") as cache_file:
-        json.dump(trimmed, cache_file, ensure_ascii=False)
+    REDFOX_CACHE_STORE.save(cache)
 
 
 def get_redfox_raw_cache(payload):

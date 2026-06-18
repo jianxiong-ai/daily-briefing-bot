@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-import hashlib
 import html
 import json
 import os
 import re
 import sys
 import time
-import urllib.request
 from datetime import datetime, timedelta, timezone
 from multiprocessing import Process, Queue
 from threading import BoundedSemaphore, Lock
@@ -33,6 +31,11 @@ from daily_briefing.llm import (
     cache_key as shared_cache_key,
     chat_completion_text,
     split_api_keys,
+)
+from daily_briefing.redfox import (
+    RawJsonCache,
+    post_json as shared_redfox_post_json,
+    redfox_cache_key as shared_redfox_cache_key,
 )
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
@@ -110,6 +113,7 @@ LLM_PROMPT_VERSION = os.environ.get("AI_LLM_PROMPT_VERSION", "ai-v2")
 APP_DATA_DIR = os.path.dirname(ENV_PATH)
 SH_TZ = timezone(timedelta(hours=8))
 REDFOX_CACHE_LOCK = Lock()
+REDFOX_CACHE_STORE = RawJsonCache(REDFOX_RAW_CACHE_FILE, max_entries=120)
 LLM_SEMAPHORE = BoundedSemaphore(max(1, LLM_MAX_CONCURRENT_REQUESTS))
 LLM_CACHE = {}
 LLM_CACHE_STORE = JsonlSummaryCache(LLM_CACHE_FILE, LLM_CACHE_TTL_SECONDS, LLM_CACHE_ENABLED, LLM_CACHE)
@@ -152,10 +156,6 @@ def truncate(value, limit):
     return value[:limit].rstrip() + "..."
 
 
-def sha256_text(value):
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
 def int_value(value):
     try:
         return int(float(value or 0))
@@ -177,25 +177,15 @@ def wait_until_send_time():
 
 
 def redfox_cache_key(payload):
-    return sha256_text(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+    return shared_redfox_cache_key(payload)
 
 
 def load_redfox_raw_cache():
-    if not os.path.exists(REDFOX_RAW_CACHE_FILE):
-        return {}
-    try:
-        with open(REDFOX_RAW_CACHE_FILE, "r", encoding="utf-8") as cache_file:
-            data = json.load(cache_file)
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return data if isinstance(data, dict) else {}
+    return REDFOX_CACHE_STORE.load()
 
 
 def save_redfox_raw_cache(cache):
-    os.makedirs(os.path.dirname(REDFOX_RAW_CACHE_FILE), exist_ok=True)
-    trimmed = dict(list(cache.items())[-120:])
-    with open(REDFOX_RAW_CACHE_FILE, "w", encoding="utf-8") as cache_file:
-        json.dump(trimmed, cache_file, ensure_ascii=False)
+    REDFOX_CACHE_STORE.save(cache)
 
 
 def get_redfox_raw_cache(payload):
@@ -227,20 +217,13 @@ def set_redfox_raw_cache(payload, data):
 
 
 def redfox_post_json(url, payload):
-    send_payload = {key: value for key, value in payload.items() if not key.startswith("_")}
-    data = json.dumps(send_payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
+    return shared_redfox_post_json(
         url,
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "X-API-KEY": REDFOX_API_KEY,
-            "User-Agent": "Codex-AIDaily/0.1",
-        },
-        method="POST",
+        payload,
+        REDFOX_API_KEY,
+        timeout=REDFOX_TIMEOUT_SECONDS,
+        user_agent="Codex-AIDaily/0.1",
     )
-    with urllib.request.urlopen(req, timeout=REDFOX_TIMEOUT_SECONDS) as resp:
-        return json.loads(resp.read().decode("utf-8"))
 
 
 def fetch_redfox_list(url, payload):
