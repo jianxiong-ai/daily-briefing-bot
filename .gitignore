@@ -12,6 +12,7 @@ secrets/
 logs/
 *.jsonl
 *_cache.json
+*_history.json
 redfox_raw_cache.json
 original_article_cache.json
 weibo_hot_history.jsonl

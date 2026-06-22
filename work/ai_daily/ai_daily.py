@@ -74,6 +74,9 @@ AI_GZH_USE_DATE_RANGE = os.environ.get("AI_GZH_USE_DATE_RANGE", "0").strip() == 
 AI_XHS_USE_DATE_RANGE = os.environ.get("AI_XHS_USE_DATE_RANGE", "0").strip() == "1"
 AI_INPUT_LIMIT = int(os.environ.get("AI_INPUT_LIMIT", "80"))
 AI_TOPIC_LIMIT = int(os.environ.get("AI_TOPIC_LIMIT", "8"))
+AI_DEDUP_ENABLED = os.environ.get("AI_DEDUP_ENABLED", "1").strip() != "0"
+AI_DEDUP_LOOKBACK_DAYS = int(os.environ.get("AI_DEDUP_LOOKBACK_DAYS", "7"))
+AI_HISTORY_FILE = os.environ.get("AI_HISTORY_FILE", os.path.join(os.path.dirname(ENV_PATH), "ai_daily_history.json"))
 REDFOX_TIMEOUT_SECONDS = int(os.environ.get("REDFOX_TIMEOUT_SECONDS", "90"))
 REDFOX_RAW_CACHE_FILE = os.environ.get("REDFOX_RAW_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "redfox_raw_cache.json"))
 REDFOX_FORCE_REFRESH = os.environ.get("REDFOX_FORCE_REFRESH", "0").strip() == "1"
@@ -346,6 +349,197 @@ def item_score(item):
     return item["likeCount"] * 20 + item["shareCount"] * 30 + item["commentCount"] * 40
 
 
+def normalize_dedup_text(value):
+    value = compact_text(value).lower()
+    value = re.sub(r"https?://\S+", " ", value)
+    value = re.sub(r"[^\w\u4e00-\u9fff]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def dedup_terms(value):
+    text = normalize_dedup_text(value)
+    terms = set()
+    for token in re.findall(r"[a-z][a-z0-9.+-]{1,}|[0-9]+(?:\.[0-9]+)?|[\u4e00-\u9fff]{2,}", text):
+        if len(token) > 4 and re.search(r"[\u4e00-\u9fff]", token):
+            for size in (2, 3, 4):
+                for index in range(0, len(token) - size + 1):
+                    terms.add(token[index : index + size])
+        else:
+            terms.add(token)
+    stopwords = {
+        "今日",
+        "昨日",
+        "行业",
+        "领域",
+        "信息",
+        "日报",
+        "内容",
+        "关注",
+        "发布",
+        "宣布",
+        "显示",
+        "用户",
+        "小红书",
+        "公众号",
+    }
+    return terms - stopwords
+
+
+def item_dedup_signature(item):
+    return sorted(dedup_terms(f"{item.get('title', '')} {item.get('summary', '')}") or dedup_terms(item.get("title", "")))
+
+
+def item_identity(item):
+    return {
+        "channel": item.get("channel", ""),
+        "id": item.get("id", ""),
+        "title": normalize_dedup_text(item.get("title", "")),
+        "signature": item_dedup_signature(item),
+    }
+
+
+def load_ai_history():
+    if not AI_HISTORY_FILE or not os.path.exists(AI_HISTORY_FILE):
+        return []
+    try:
+        with open(AI_HISTORY_FILE, "r", encoding="utf-8") as history_file:
+            data = json.load(history_file)
+    except (OSError, json.JSONDecodeError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def prune_ai_history(history):
+    cutoff = digest_day().date() - timedelta(days=max(1, AI_DEDUP_LOOKBACK_DAYS))
+    pruned = []
+    for record in history:
+        try:
+            record_date = datetime.strptime(record.get("date", ""), "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            continue
+        if record_date >= cutoff and record_date != digest_day().date():
+            pruned.append(record)
+    return pruned
+
+
+def save_ai_history(history):
+    if not AI_HISTORY_FILE:
+        return
+    directory = os.path.dirname(AI_HISTORY_FILE)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    with open(AI_HISTORY_FILE, "w", encoding="utf-8") as history_file:
+        json.dump(history[-max(1, AI_DEDUP_LOOKBACK_DAYS) :], history_file, ensure_ascii=False)
+
+
+def similarity(left, right):
+    left_set = set(left or [])
+    right_set = set(right or [])
+    if not left_set or not right_set:
+        return 0.0
+    overlap = len(left_set & right_set)
+    if overlap < 3:
+        return 0.0
+    return overlap / max(1, min(len(left_set), len(right_set)))
+
+
+def has_strong_event_overlap(left, right):
+    left_set = set(left or [])
+    right_set = set(right or [])
+    overlap = left_set & right_set
+    entity_overlap = {
+        term
+        for term in overlap
+        if re.search(r"[a-z]", term) or re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", term)
+    }
+    chinese_overlap = {term for term in overlap if re.search(r"[\u4e00-\u9fff]", term)}
+    if len(entity_overlap) >= 2 and len(chinese_overlap) >= 2:
+        return True
+    if len(overlap) >= 8 and similarity(left_set, right_set) >= 0.24:
+        return True
+    return False
+
+
+def is_recent_duplicate(item, recent_identities):
+    identity = item_identity(item)
+    if not identity["title"] and not identity["signature"]:
+        return False
+    for previous in recent_identities:
+        if identity["id"] and identity["channel"] == previous.get("channel") and identity["id"] == previous.get("id"):
+            return True
+        if identity["title"] and identity["title"] == previous.get("title"):
+            return True
+        if similarity(identity["signature"], previous.get("signature")) >= 0.72:
+            return True
+        if has_strong_event_overlap(identity["signature"], previous.get("signature")):
+            return True
+    return False
+
+
+def recent_history_identities(history):
+    identities = []
+    for record in prune_ai_history(history):
+        identities.extend(record.get("items") or [])
+    return identities
+
+
+def dedupe_recent_ai_items(items):
+    if not AI_DEDUP_ENABLED:
+        return items
+    history = load_ai_history()
+    recent_identities = recent_history_identities(history)
+    if not recent_identities:
+        return items
+    result = []
+    skipped = 0
+    for item in items:
+        if is_recent_duplicate(item, recent_identities):
+            skipped += 1
+            continue
+        result.append(item)
+    if skipped:
+        log_progress(f"ai recent dedupe skipped={skipped} kept={len(result)}")
+    return result
+
+
+def recent_history_context(history, limit=12):
+    texts = []
+    for record in reversed(prune_ai_history(history)):
+        for value in record.get("highlights") or []:
+            text = truncate(value, 120)
+            if text and text not in texts:
+                texts.append(text)
+            if len(texts) >= limit:
+                return texts
+    return texts
+
+
+def record_ai_history(items, digest):
+    if not AI_DEDUP_ENABLED:
+        return
+    history = prune_ai_history(load_ai_history())
+    highlights = []
+    if digest.get("overview"):
+        highlights.append(compact_text(digest.get("overview")))
+    for signal in digest.get("signals") or []:
+        text = compact_text(signal)
+        if text:
+            highlights.append(text)
+    for topic in digest.get("topics") or []:
+        if isinstance(topic, dict):
+            text = compact_text(f"{topic.get('topic', '')}: {topic.get('summary', '')}")
+            if text:
+                highlights.append(text)
+    history.append(
+        {
+            "date": digest_day().strftime("%Y-%m-%d"),
+            "items": [item_identity(item) for item in items[:AI_INPUT_LIMIT]],
+            "highlights": highlights[:24],
+        }
+    )
+    save_ai_history(history)
+
+
 def current_model_name():
     return DEEPSEEK_MODEL if LLM_PROVIDER == "deepseek" else OPENAI_MODEL
 
@@ -487,13 +681,18 @@ def fallback_digest(items):
 
 
 def build_llm_digest(items):
+    if not items:
+        return fallback_digest(items)
     if LLM_PROVIDER == "deepseek" and not DEEPSEEK_API_KEYS:
         return fallback_digest(items)
     if LLM_PROVIDER != "deepseek" and not OPENAI_API_KEY:
         return fallback_digest(items)
+    history = load_ai_history()
+    recent_context = recent_history_context(history)
     payload = {
         "date": digest_day().strftime("%Y-%m-%d"),
         "items": [item_for_llm(item) for item in balanced_items(items, max(1, AI_INPUT_LIMIT // 2))[:AI_INPUT_LIMIT]],
+        "recent_published_highlights": recent_context,
     }
     cached = get_cached_summary("ai_daily_digest", payload)
     if cached:
@@ -507,7 +706,8 @@ def build_llm_digest(items):
         "3. 每个主题要合并两个渠道的信息，不要在主题标题里写“公众号”“小红书”等来源名；来源差异放在正文里自然说明。\n"
         "4. 小红书内容不要当成行业事实，应表达为用户体验、创作者反馈或使用场景；公众号内容可作为行业资讯和深度文章线索。\n"
         "5. signals 输出 3-5 条今日值得关注的信号，短句即可。\n"
-        "6. 不要编造输入以外的信息，不要写投资建议。\n"
+        "6. recent_published_highlights 是最近几天已经写进日报的重点，请避免重复这些旧内容；只有输入里出现了明确的新进展、新数据、新产品或新观点时才可再次提及，并要突出新增信息。\n"
+        "7. 不要编造输入以外的信息，不要写投资建议。\n"
         "输入 JSON：\n"
         + json.dumps(payload, ensure_ascii=False)
     )
@@ -532,7 +732,7 @@ def markdown_link(text, href):
     return f"[{markdown_escape(text)}]({href})"
 
 
-def build_daily_lines(items):
+def build_daily_payload(items):
     try:
         digest = build_llm_digest(items)
     except Exception as exc:
@@ -563,7 +763,11 @@ def build_daily_lines(items):
     if len(topic_lines) == 1:
         topic_lines.append("暂无可归纳主题。")
 
-    return overview_lines, signal_lines, topic_lines
+    return (overview_lines, signal_lines, topic_lines), digest
+
+
+def build_daily_lines(items):
+    return build_daily_payload(items)[0]
 
 
 def send_feishu_card(webhook, sections, today):
@@ -611,7 +815,7 @@ def send_wechat_work_markdown(webhook, title, sections):
 def send_notifications(items):
     today = digest_day().strftime("%Y-%m-%d")
     title = f"{AI_DAILY_TITLE} {today}"
-    sections = build_daily_lines(items)
+    sections, digest = build_daily_payload(items)
     errors = []
     sent = 0
     image_key = ""
@@ -651,18 +855,19 @@ def send_notifications(items):
         if image_error:
             errors.append(f"feishu-image: {image_error}")
         raise RuntimeError("all notification channels failed: " + "; ".join(errors))
+    record_ai_history(items, digest)
 
 
 def main():
     log_progress("start loading ai daily items")
-    items = load_ai_items()
+    items = dedupe_recent_ai_items(load_ai_items())
     log_progress(f"ai items loaded count={len(items)}")
     if RENDER_ONLY:
         if not render_daily_image:
             raise RuntimeError("daily image renderer unavailable")
         today = digest_day().strftime("%Y-%m-%d")
         title = f"{AI_DAILY_TITLE} {today}"
-        sections = build_daily_lines(items)
+        sections, _digest = build_daily_payload(items)
         output_path = RENDER_OUTPUT or os.path.join(APP_DATA_DIR, f"ai_daily_render_only_{today}.png")
         render_daily_image(title, sections, output_path)
         log_progress(f"render only output={output_path}")

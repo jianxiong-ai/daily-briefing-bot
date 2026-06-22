@@ -30,6 +30,18 @@ Do not commit real `.env` files. Use files under `examples/env/` as templates.
 | `RENDER_ONLY` | `1` renders an image without pushing |
 | `RENDER_OUTPUT` | Output path for render-only image |
 
+## AI Daily Deduplication
+
+AI daily keeps a small local history file so repeated topics from RedFox-backed
+feeds do not appear day after day. By default it looks back seven days and only
+records reports that were actually pushed.
+
+| Variable | Purpose |
+| --- | --- |
+| `AI_DEDUP_ENABLED` | `1` enables cross-day deduplication |
+| `AI_DEDUP_LOOKBACK_DAYS` | Number of previous days to compare against |
+| `AI_HISTORY_FILE` | Local JSON history file path |
+
 ## Report-Specific Env Files
 
 - `AI_DAILY_ENV`
