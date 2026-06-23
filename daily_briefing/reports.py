@@ -13,6 +13,18 @@ class Report:
     env_var: str
     example_env: Path
     default_env: Path
+    launchd_label: str = ""
+    app_support_name: str = ""
+    log_file: str = ""
+
+    @property
+    def default_launchd_label(self):
+        return self.launchd_label or f"com.jason.{self.name}-daily"
+
+    @property
+    def default_app_support_dir(self):
+        app_name = self.app_support_name or f"Codex{self.name.title()}Daily"
+        return Path.home() / "Library/Application Support" / app_name
 
 
 REPORTS = {
@@ -23,6 +35,9 @@ REPORTS = {
         env_var="AI_DAILY_ENV",
         example_env=ROOT / "examples/env/ai_daily.env.example",
         default_env=ROOT / "work/ai_daily/.env",
+        launchd_label="com.jason.ai-daily",
+        app_support_name="CodexAIDaily",
+        log_file="logs/ai_daily.log",
     ),
     "cctv": Report(
         name="cctv",
@@ -31,6 +46,9 @@ REPORTS = {
         env_var="CCTV_DAILY_ENV",
         example_env=ROOT / "examples/env/cctv_daily.env.example",
         default_env=ROOT / "work/cctv_daily/.env",
+        launchd_label="com.jason.cctv-daily",
+        app_support_name="CodexCctvDaily",
+        log_file="logs/cctv_daily.log",
     ),
     "douyin": Report(
         name="douyin",
@@ -39,6 +57,9 @@ REPORTS = {
         env_var="DOUYIN_DAILY_ENV",
         example_env=ROOT / "examples/env/douyin_daily.env.example",
         default_env=ROOT / "work/douyin_daily/.env",
+        launchd_label="com.jason.douyin-daily",
+        app_support_name="CodexDouyinDaily",
+        log_file="logs/douyin_daily.log",
     ),
     "wechat": Report(
         name="wechat",
@@ -47,6 +68,9 @@ REPORTS = {
         env_var="WECHAT_DAILY_ENV",
         example_env=ROOT / "examples/env/wechat_daily.env.example",
         default_env=ROOT / "work/wechat_daily/.env",
+        launchd_label="com.jason.wechat-daily",
+        app_support_name="CodexWechatDaily",
+        log_file="logs/wechat_daily.log",
     ),
     "weibo": Report(
         name="weibo",
@@ -55,6 +79,9 @@ REPORTS = {
         env_var="WEIBO_DAILY_ENV",
         example_env=ROOT / "examples/env/weibo_daily.env.example",
         default_env=ROOT / "work/weibo_daily/.env",
+        launchd_label="com.jason.weibo-daily",
+        app_support_name="CodexWeiboDaily",
+        log_file="logs/weibo_daily.log",
     ),
     "zsxq": Report(
         name="zsxq",
@@ -63,6 +90,9 @@ REPORTS = {
         env_var="ZSXQ_DAILY_ENV",
         example_env=ROOT / "examples/env/zsxq_daily.env.example",
         default_env=ROOT / "work/zsxq_daily/.env",
+        launchd_label="com.jason.zsxq-daily",
+        app_support_name="CodexZsxqDaily",
+        log_file="logs/zsxq_daily.log",
     ),
 }
 

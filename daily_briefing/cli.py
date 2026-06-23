@@ -4,6 +4,7 @@ import runpy
 from pathlib import Path
 
 from .config import has_errors, mask_value, parse_env_file, validate_report_config
+from .doctor import doctor_reports, findings_have_errors
 from .reports import REPORTS, get_report
 
 
@@ -57,6 +58,16 @@ def validate_report(args):
     return 1 if has_errors(issues) else 0
 
 
+def doctor_command(args):
+    report_names = None if args.report == "all" else [args.report]
+    findings = doctor_reports(report_names, env_path=args.env, check_network=args.network)
+    for report_name, lines in findings.items():
+        print(f"report: {report_name}")
+        for line in lines:
+            print(f"{line.level}: {line.message}")
+    return 1 if findings_have_errors(findings) else 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="daily-briefing")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -96,6 +107,16 @@ def build_parser():
         help="Print env keys with secret values masked",
     )
     validate_parser.set_defaults(func=validate_report)
+
+    doctor_parser = subparsers.add_parser("doctor", help="Check local report health")
+    doctor_parser.add_argument("report", choices=sorted(REPORTS) + ["all"], nargs="?", default="all")
+    doctor_parser.add_argument("--env", help="Env path, only valid when checking one report")
+    doctor_parser.add_argument(
+        "--network",
+        action="store_true",
+        help="Also check DNS resolution for common external services",
+    )
+    doctor_parser.set_defaults(func=doctor_command)
     return parser
 
 
