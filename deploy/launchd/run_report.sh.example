@@ -17,8 +17,10 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
+set +e
 "$PYTHON_BIN" -m daily_briefing.cli run "$REPORT_NAME" --env "$ENV_FILE" >> "$REPORT_LOG" 2>&1
 run_status=$?
+set -e
 if [[ "$run_status" -ne 0 ]]; then
   "$PYTHON_BIN" -m daily_briefing.cli alert "$REPORT_NAME" \
     --env "$ENV_FILE" \

@@ -29,6 +29,8 @@ class LaunchdTests(unittest.TestCase):
         )
         self.assertIn("daily_briefing.cli run", text)
         self.assertIn("daily_briefing.cli alert", text)
+        self.assertIn("set +e", text)
+        self.assertIn("set -e", text)
 
     def test_install_launchd_report_writes_files_without_loading(self):
         with tempfile.TemporaryDirectory() as tmpdir:
