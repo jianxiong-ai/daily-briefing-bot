@@ -7,6 +7,8 @@ from unittest.mock import patch
 from daily_briefing.llm import (
     ApiKeyRing,
     JsonlSummaryCache,
+    LlmClient,
+    LlmSettings,
     cache_key,
     chat_completion_text,
     split_api_keys,
@@ -82,6 +84,44 @@ class LlmTests(unittest.TestCase):
         self.assertEqual(req.headers["Authorization"], "Bearer secret")
         body = json.loads(req.data.decode("utf-8"))
         self.assertEqual(body["response_format"], {"type": "json_object"})
+
+    def test_llm_client_retries_with_next_key(self):
+        calls = []
+
+        def fake_chat_completion_text(**kwargs):
+            calls.append(kwargs["api_key"])
+            if len(calls) == 1:
+                raise TimeoutError("slow")
+            return "ok"
+
+        settings = LlmSettings(
+            provider="deepseek",
+            base_url="https://api.example.com",
+            model="model",
+            api_keys=["k1", "k2"],
+            timeout=3,
+            retries=1,
+            retry_backoff_seconds=0,
+        )
+        with patch("daily_briefing.llm.chat_completion_text", fake_chat_completion_text):
+            result = LlmClient(settings).chat([{"role": "user", "content": "hi"}])
+
+        self.assertEqual(result, "ok")
+        self.assertEqual(calls, ["k1", "k2"])
+
+    def test_llm_settings_from_env_selects_provider(self):
+        settings = LlmSettings.from_env(
+            {
+                "LLM_PROVIDER": "openai",
+                "OPENAI_API_KEY": "oa",
+                "OPENAI_MODEL": "gpt-test",
+                "LLM_TIMEOUT_SECONDS": "9",
+            }
+        )
+        self.assertEqual(settings.provider, "openai")
+        self.assertEqual(settings.model, "gpt-test")
+        self.assertEqual(settings.api_keys, ["oa"])
+        self.assertEqual(settings.timeout, 9)
 
 
 if __name__ == "__main__":

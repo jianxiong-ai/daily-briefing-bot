@@ -34,6 +34,95 @@ class ApiKeyRing:
             return key
 
 
+@dataclass
+class LlmSettings:
+    provider: str
+    base_url: str
+    model: str
+    api_keys: list
+    timeout: int = 270
+    temperature: float = 0.2
+    retries: int = 1
+    retry_backoff_seconds: float = 0.5
+
+    @classmethod
+    def from_env(cls, environ=None):
+        environ = os.environ if environ is None else environ
+        provider = (environ.get("LLM_PROVIDER") or "deepseek").strip().lower()
+        timeout = int(environ.get("LLM_TIMEOUT_SECONDS") or "270")
+        retries = int(environ.get("LLM_RETRIES") or "1")
+        temperature = float(environ.get("LLM_TEMPERATURE") or "0.2")
+        if provider == "openai":
+            return cls(
+                provider=provider,
+                base_url=(environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/"),
+                model=(environ.get("OPENAI_MODEL") or "gpt-4.1-mini").strip(),
+                api_keys=split_api_keys(environ.get("OPENAI_API_KEY", ""), environ.get("OPENAI_API_KEYS", "")),
+                timeout=timeout,
+                temperature=temperature,
+                retries=retries,
+            )
+        return cls(
+            provider=provider,
+            base_url=(environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com").rstrip("/"),
+            model=(environ.get("DEEPSEEK_MODEL") or "deepseek-v4-pro").strip(),
+            api_keys=split_api_keys(environ.get("DEEPSEEK_API_KEY", ""), environ.get("DEEPSEEK_API_KEYS", "")),
+            timeout=timeout,
+            temperature=temperature,
+            retries=retries,
+        )
+
+
+class LlmClient:
+    def __init__(self, settings, semaphore=None, sleep_fn=time.sleep):
+        self.settings = settings
+        self.key_ring = ApiKeyRing(settings.api_keys)
+        self.semaphore = semaphore
+        self.sleep_fn = sleep_fn
+
+    def chat(self, messages, *, response_format=None, temperature=None, timeout=None):
+        attempts = max(1, int(self.settings.retries) + 1)
+        last_error = None
+        for attempt in range(attempts):
+            try:
+                return self._chat_once(
+                    messages,
+                    response_format=response_format,
+                    temperature=self.settings.temperature if temperature is None else temperature,
+                    timeout=self.settings.timeout if timeout is None else timeout,
+                )
+            except Exception as exc:
+                last_error = exc
+                if attempt + 1 >= attempts:
+                    break
+                if self.settings.retry_backoff_seconds > 0:
+                    self.sleep_fn(self.settings.retry_backoff_seconds * (attempt + 1))
+        raise last_error
+
+    def _chat_once(self, messages, *, response_format, temperature, timeout):
+        api_key = self.key_ring.next()
+        if self.semaphore is None:
+            return chat_completion_text(
+                base_url=self.settings.base_url,
+                api_key=api_key,
+                model=self.settings.model,
+                messages=messages,
+                timeout=timeout,
+                temperature=temperature,
+                response_format=response_format,
+            )
+        with self.semaphore:
+            return chat_completion_text(
+                base_url=self.settings.base_url,
+                api_key=api_key,
+                model=self.settings.model,
+                messages=messages,
+                timeout=timeout,
+                temperature=temperature,
+                response_format=response_format,
+            )
+
+
 def cache_key(kind, payload, provider, model, prompt_version):
     identity = {
         "kind": kind,

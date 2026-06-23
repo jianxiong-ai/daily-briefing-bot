@@ -28,8 +28,9 @@ from daily_briefing.push import (
 )
 from daily_briefing.llm import (
     JsonlSummaryCache,
+    LlmClient,
+    LlmSettings,
     cache_key as shared_cache_key,
-    chat_completion_text,
     split_api_keys,
 )
 from daily_briefing.redfox import (
@@ -118,6 +119,17 @@ SH_TZ = timezone(timedelta(hours=8))
 REDFOX_CACHE_LOCK = Lock()
 REDFOX_CACHE_STORE = RawJsonCache(REDFOX_RAW_CACHE_FILE, max_entries=120)
 LLM_SEMAPHORE = BoundedSemaphore(max(1, LLM_MAX_CONCURRENT_REQUESTS))
+LLM_CLIENT = LlmClient(
+    LlmSettings(
+        provider=LLM_PROVIDER,
+        base_url=DEEPSEEK_BASE_URL if LLM_PROVIDER == "deepseek" else "https://api.openai.com/v1",
+        model=DEEPSEEK_MODEL if LLM_PROVIDER == "deepseek" else OPENAI_MODEL,
+        api_keys=DEEPSEEK_API_KEYS if LLM_PROVIDER == "deepseek" else ([OPENAI_API_KEY] if OPENAI_API_KEY else []),
+        timeout=LLM_TIMEOUT_SECONDS,
+        retries=int(os.environ.get("LLM_RETRIES", "1")),
+    ),
+    semaphore=LLM_SEMAPHORE,
+)
 LLM_CACHE = {}
 LLM_CACHE_STORE = JsonlSummaryCache(LLM_CACHE_FILE, LLM_CACHE_TTL_SECONDS, LLM_CACHE_ENABLED, LLM_CACHE)
 
@@ -577,31 +589,16 @@ load_llm_cache()
 
 
 def run_llm_request(prompt, response_format):
-    if LLM_PROVIDER == "deepseek":
-        api_keys = DEEPSEEK_API_KEYS
-        base_url = DEEPSEEK_BASE_URL
-        model = DEEPSEEK_MODEL
-    else:
-        api_keys = [OPENAI_API_KEY] if OPENAI_API_KEY else []
-        base_url = "https://api.openai.com/v1"
-        model = OPENAI_MODEL
-    if not api_keys:
+    if not LLM_CLIENT.settings.api_keys:
         raise RuntimeError("missing LLM API key")
-    key = api_keys[int(time.time() * 1000) % len(api_keys)]
     start = time.time()
-    with LLM_SEMAPHORE:
-        text = chat_completion_text(
-            base_url=base_url,
-            api_key=key,
-            model=model,
-            messages=[
+    text = LLM_CLIENT.chat(
+        [
             {"role": "system", "content": "你是严谨的 AI 行业信息分析助手，只根据输入内容总结，输出有效 JSON。"},
             {"role": "user", "content": prompt},
-            ],
-            timeout=LLM_TIMEOUT_SECONDS,
-            temperature=0.2,
-            response_format={"type": "json_object"},
-        )
+        ],
+        response_format={"type": "json_object"},
+    )
     log_progress(f"llm request ok seconds={time.time() - start:.1f} prompt_chars={len(prompt)}")
     return text
 
