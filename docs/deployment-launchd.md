@@ -32,40 +32,49 @@ If a report needs expensive precomputation, start launchd earlier and keep
 `SEND_AT_LOCAL` as the actual delivery time. If you do not want precomputation,
 make the launchd start time and `SEND_AT_LOCAL` identical.
 
+## CLI Install
+
+The recommended path is to let the CLI generate the wrapper and plist:
+
+```bash
+python3 -m daily_briefing.cli launchd install cctv \
+  --project-dir "$HOME/Developer/daily-briefing-bot" \
+  --app-dir "$HOME/Library/Application Support/DailyBriefingBot/cctv_daily" \
+  --hour 8 \
+  --minute 0 \
+  --copy-env
+```
+
+Edit the generated `.env`, then load the job:
+
+```bash
+launchctl bootstrap gui/$(id -u) \
+  "$HOME/Library/LaunchAgents/com.daily-briefing.cctv.plist"
+launchctl enable gui/$(id -u)/com.daily-briefing.cctv
+```
+
+You can also pass `--load` to the install command to reload the job immediately.
+The generated wrapper sends a primary-robot failure alert when the report command
+exits non-zero.
+
+For interval jobs such as hot-search collection:
+
+```bash
+python3 -m daily_briefing.cli launchd install weibo \
+  --project-dir "$HOME/Developer/daily-briefing-bot" \
+  --app-dir "$HOME/Library/Application Support/DailyBriefingBot/weibo_hot" \
+  --interval-seconds 1800
+```
+
 ## Template Files
 
 - `deploy/launchd/daily-report.plist.example` for fixed daily schedules.
 - `deploy/launchd/interval-report.plist.example` for interval jobs such as
   polling or snapshot collection.
-- `deploy/launchd/run_report.sh.example` for loading env and running a report.
+- `deploy/launchd/run_report.sh.example` for loading env, running a report, and
+  sending a failure alert.
 
-Copy these templates to your runtime directory, replace placeholders, and make
-the wrapper executable.
-
-## Install Example
-
-```bash
-APP_DIR="$HOME/Library/Application Support/DailyBriefingBot/cctv_daily"
-mkdir -p "$APP_DIR" "$HOME/Library/LaunchAgents"
-
-cp deploy/launchd/run_report.sh.example "$APP_DIR/run_report.sh"
-chmod +x "$APP_DIR/run_report.sh"
-
-# Edit run_report.sh and set:
-# PROJECT_DIR="$HOME/src/daily-briefing-bot"
-# REPORT_NAME="cctv"
-
-sed \
-  -e "s#__LABEL__#com.example.cctv-daily#g" \
-  -e "s#__APP_DIR__#$APP_DIR#g" \
-  -e "s#__HOUR__#8#g" \
-  -e "s#__MINUTE__#0#g" \
-  deploy/launchd/daily-report.plist.example \
-  > "$HOME/Library/LaunchAgents/com.example.cctv-daily.plist"
-
-launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.example.cctv-daily.plist"
-launchctl enable gui/$(id -u)/com.example.cctv-daily
-```
+The templates remain useful if you need hand-written local customization.
 
 ## Disable Example
 

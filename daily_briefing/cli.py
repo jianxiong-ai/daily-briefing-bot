@@ -6,6 +6,7 @@ from pathlib import Path
 from .alerts import send_failure_alert
 from .config import has_errors, mask_value, parse_env_file, validate_report_config
 from .doctor import doctor_reports, findings_have_errors
+from .launchd import copy_example_env, install_launchd_report
 from .reports import REPORTS, get_report
 
 
@@ -92,6 +93,30 @@ def alert_command(args):
     return 1
 
 
+def launchd_install_command(args):
+    result = install_launchd_report(
+        report_name=args.report,
+        project_dir=args.project_dir,
+        app_dir=args.app_dir,
+        env_file=args.env,
+        label=args.label,
+        hour=args.hour,
+        minute=args.minute,
+        interval_seconds=args.interval_seconds,
+        python_bin=args.python_bin,
+        load=args.load,
+    )
+    if args.copy_env:
+        env_path = copy_example_env(args.report, result.app_dir, overwrite=args.overwrite_env)
+        print(f"env: {env_path}")
+    print(f"app_dir: {result.app_dir}")
+    print(f"wrapper: {result.wrapper_path}")
+    print(f"plist: {result.plist_path}")
+    print(f"label: {result.label}")
+    print(f"loaded: {result.loaded}")
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="daily-briefing")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -150,6 +175,23 @@ def build_parser():
     alert_parser.add_argument("--log", help="Attach the tail of this log file")
     alert_parser.add_argument("--push-targets", choices=("all", "primary"), default="primary")
     alert_parser.set_defaults(func=alert_command)
+
+    launchd_parser = subparsers.add_parser("launchd", help="Manage macOS launchd jobs")
+    launchd_subparsers = launchd_parser.add_subparsers(dest="launchd_command", required=True)
+    install_parser = launchd_subparsers.add_parser("install", help="Install or update a launchd report job")
+    install_parser.add_argument("report", choices=sorted(REPORTS))
+    install_parser.add_argument("--project-dir", default=str(Path.cwd()), help="Project directory to run")
+    install_parser.add_argument("--app-dir", help="Application Support directory for env and logs")
+    install_parser.add_argument("--env", help="Env file path. Defaults to APP_DIR/.env")
+    install_parser.add_argument("--label", help="launchd label")
+    install_parser.add_argument("--hour", type=int, help="Daily schedule hour")
+    install_parser.add_argument("--minute", type=int, help="Daily schedule minute")
+    install_parser.add_argument("--interval-seconds", type=int, help="Run every N seconds instead of daily schedule")
+    install_parser.add_argument("--python-bin", default="python3")
+    install_parser.add_argument("--copy-env", action="store_true", help="Copy the example env into APP_DIR/.env")
+    install_parser.add_argument("--overwrite-env", action="store_true", help="Overwrite APP_DIR/.env when copying env")
+    install_parser.add_argument("--load", action="store_true", help="Load/reload the launchd job now")
+    install_parser.set_defaults(func=launchd_install_command)
     return parser
 
 
