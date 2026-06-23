@@ -35,6 +35,7 @@ from daily_briefing.redfox import (
     RawJsonCache,
     post_json as shared_redfox_post_json,
 )
+from daily_briefing.quality import is_local_weather_noise
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -735,11 +736,9 @@ def is_remote_local_weather(article):
         return False
     if any(keyword in title for keyword in REMOTE_REGION_KEYWORDS):
         return True
-    if any(keyword in text for keyword in NEARBY_REGION_KEYWORDS):
-        return False
     if any(keyword in text for keyword in NATIONAL_IMPACT_KEYWORDS):
         return False
-    return any(keyword in text for keyword in REMOTE_REGION_KEYWORDS)
+    return is_local_weather_noise(text, allowed_regions=NEARBY_REGION_KEYWORDS)
 
 
 def quality_score(article):
@@ -768,7 +767,7 @@ def diversify_articles(articles):
         item["category"] = classify_article(item)
         item["qualityScore"] = quality_score(item)
 
-    preferred = [item for item in articles if not is_low_value_article(item)]
+    preferred = [item for item in articles if not is_low_value_article(item) and not is_remote_local_weather(item)]
     if len(preferred) >= min(6, WECHAT_HOT_REPORT_LIMIT):
         primary_pool = preferred
     else:

@@ -30,6 +30,7 @@ from daily_briefing.push import (
     truncate_utf8_plain as push_truncate_utf8_plain,
     wechat_work_markdown as push_wechat_work_markdown,
 )
+from daily_briefing.quality import low_priority_topic_sort_key
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -1352,6 +1353,7 @@ def order_topic_summaries(topic_summaries):
     return sorted(
         normalized,
         key=lambda item: (
+            low_priority_topic_sort_key(item),
             topic_order_rank(item),
             item.get("topic", ""),
             -len(item.get("summary", "")),

@@ -38,6 +38,7 @@ from daily_briefing.redfox import (
     post_json as shared_redfox_post_json,
     redfox_cache_key as shared_redfox_cache_key,
 )
+from daily_briefing.quality import dedupe_by_similarity
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -351,6 +352,11 @@ def load_ai_items():
             continue
         seen.add(key)
         deduped.append(item)
+    deduped = dedupe_by_similarity(
+        deduped,
+        lambda item: f"{item.get('title', '')} {item.get('summary', '')}",
+        threshold=0.42,
+    )
     deduped.sort(key=lambda item: item_score(item), reverse=True)
     return deduped
 
