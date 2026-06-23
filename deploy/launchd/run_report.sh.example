@@ -9,6 +9,7 @@ ENV_FILE="${ENV_FILE:-$APP_DIR/.env}"
 LOG_DIR="$APP_DIR/logs"
 mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIR"
+REPORT_LOG="$LOG_DIR/report.log"
 
 if [[ -f "$ENV_FILE" ]]; then
   set -a
@@ -16,4 +17,14 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-exec "$PYTHON_BIN" -m daily_briefing.cli run "$REPORT_NAME" --env "$ENV_FILE" >> "$LOG_DIR/report.log" 2>&1
+"$PYTHON_BIN" -m daily_briefing.cli run "$REPORT_NAME" --env "$ENV_FILE" >> "$REPORT_LOG" 2>&1
+run_status=$?
+if [[ "$run_status" -ne 0 ]]; then
+  "$PYTHON_BIN" -m daily_briefing.cli alert "$REPORT_NAME" \
+    --env "$ENV_FILE" \
+    --message "launchd report command failed" \
+    --exit-code "$run_status" \
+    --log "$REPORT_LOG" \
+    --push-targets primary >> "$LOG_DIR/alert.log" 2>&1 || true
+fi
+exit "$run_status"

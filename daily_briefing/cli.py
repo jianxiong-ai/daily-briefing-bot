@@ -3,6 +3,7 @@ import os
 import runpy
 from pathlib import Path
 
+from .alerts import send_failure_alert
 from .config import has_errors, mask_value, parse_env_file, validate_report_config
 from .doctor import doctor_reports, findings_have_errors
 from .reports import REPORTS, get_report
@@ -68,6 +69,29 @@ def doctor_command(args):
     return 1 if findings_have_errors(findings) else 0
 
 
+def alert_command(args):
+    result = send_failure_alert(
+        report=args.report,
+        message=args.message,
+        env_path=args.env,
+        exit_code=args.exit_code,
+        log_path=args.log,
+        push_targets=args.push_targets,
+    )
+    if result.sent:
+        print(f"sent: {result.sent}")
+        if result.errors:
+            for error in result.errors:
+                print(f"warn: {error}")
+        return 0
+    if not result.errors:
+        print("error: no push target configured")
+        return 1
+    for error in result.errors:
+        print(f"error: {error}")
+    return 1
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="daily-briefing")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -117,6 +141,15 @@ def build_parser():
         help="Also check DNS resolution for common external services",
     )
     doctor_parser.set_defaults(func=doctor_command)
+
+    alert_parser = subparsers.add_parser("alert", help="Send a failure alert to push targets")
+    alert_parser.add_argument("report")
+    alert_parser.add_argument("--message", required=True)
+    alert_parser.add_argument("--env", help="Env file containing webhook settings")
+    alert_parser.add_argument("--exit-code", type=int)
+    alert_parser.add_argument("--log", help="Attach the tail of this log file")
+    alert_parser.add_argument("--push-targets", choices=("all", "primary"), default="primary")
+    alert_parser.set_defaults(func=alert_command)
     return parser
 
 
