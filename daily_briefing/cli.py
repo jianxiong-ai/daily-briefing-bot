@@ -3,6 +3,7 @@ import os
 import runpy
 from pathlib import Path
 
+from .config import has_errors, mask_value, parse_env_file, validate_report_config
 from .reports import REPORTS, get_report
 
 
@@ -38,6 +39,24 @@ def run_report(args):
     return 0
 
 
+def validate_report(args):
+    report = get_report(args.report)
+    env_path = Path(args.env).expanduser() if args.env else report.default_env
+    issues = validate_report_config(report.name, env_path, os.environ)
+    values = parse_env_file(env_path)
+    print(f"report: {report.name}")
+    print(f"env: {env_path}")
+    for key in sorted(values):
+        if args.show_values:
+            print(f"env[{key}]={mask_value(key, values[key])}")
+    if not issues:
+        print("ok: config looks usable")
+        return 0
+    for issue in issues:
+        print(f"{issue.level}: {issue.key}: {issue.message}")
+    return 1 if has_errors(issues) else 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="daily-briefing")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -67,6 +86,16 @@ def build_parser():
         help="Override SEND_AT_LOCAL. Use an empty string to avoid waiting.",
     )
     run_parser.set_defaults(func=run_report)
+
+    validate_parser = subparsers.add_parser("validate", help="Validate report configuration")
+    validate_parser.add_argument("report", choices=sorted(REPORTS))
+    validate_parser.add_argument("--env", help="Path to the report .env file")
+    validate_parser.add_argument(
+        "--show-values",
+        action="store_true",
+        help="Print env keys with secret values masked",
+    )
+    validate_parser.set_defaults(func=validate_report)
     return parser
 
 
