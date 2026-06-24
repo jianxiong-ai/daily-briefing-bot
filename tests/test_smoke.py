@@ -23,6 +23,20 @@ class SmokeTests(unittest.TestCase):
         self.assertTrue(callable(daily_image.render_daily_image))
         self.assertTrue(callable(daily_image.upload_feishu_image))
 
+    def test_daily_image_splits_long_text_at_sentence_boundaries(self):
+        daily_image = load_module("daily_image_paragraphs", "work/daily_image.py")
+        text = (
+            "第一句介绍事件背景和主要参与者，并补充必要信息。"
+            "第二句说明事件进展、影响范围和关键数据，帮助读者理解上下文。"
+            "第三句继续解释各方反应以及后续值得关注的变化。"
+            "第四句给出更多事实细节，使整段文字达到自动分段阈值。"
+        )
+        paragraphs = daily_image.split_spans_into_paragraphs(
+            [(text, daily_image.BODY_FONT, daily_image.TEXT)]
+        )
+        self.assertGreaterEqual(len(paragraphs), 2)
+        self.assertTrue(paragraphs[0][-1][0].endswith("。"))
+
     def test_report_modules_import_without_credentials(self):
         modules = {
             "ai_daily": "work/ai_daily/ai_daily.py",

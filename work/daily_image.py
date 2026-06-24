@@ -21,6 +21,9 @@ PANEL_GAP = 28
 PANEL_PAD_X = 42
 PANEL_PAD_Y = 34
 LINE_GAP = 18
+PARAGRAPH_GAP = 26
+PARAGRAPH_MIN_CHARS = 72
+PARAGRAPH_SOFT_MAX_CHARS = 132
 
 CARD_BG = "#eaf4ff"
 PANEL_BG = "#fafdff"
@@ -175,6 +178,38 @@ def wrap_spans(draw, spans, max_width):
     return lines or [[("", BODY_FONT, TEXT)]]
 
 
+def split_spans_into_paragraphs(spans):
+    paragraphs = []
+    current = []
+    visible_chars = 0
+
+    def append_char(char, font, color):
+        if current and current[-1][1] == font and current[-1][2] == color:
+            text, old_font, old_color = current[-1]
+            current[-1] = (text + char, old_font, old_color)
+        else:
+            current.append((char, font, color))
+
+    def flush():
+        nonlocal current, visible_chars
+        if current:
+            paragraphs.append(current)
+        current = []
+        visible_chars = 0
+
+    for text, font, color in spans:
+        for char in text:
+            append_char(char, font, color)
+            if not char.isspace():
+                visible_chars += 1
+            if char in "。！？；!?" and visible_chars >= PARAGRAPH_MIN_CHARS:
+                flush()
+            elif char in "，、," and visible_chars >= PARAGRAPH_SOFT_MAX_CHARS:
+                flush()
+    flush()
+    return paragraphs or [spans]
+
+
 def line_height(spans):
     sizes = []
     for _text, font, _color in spans:
@@ -281,11 +316,23 @@ def measure_rich_lines(draw, lines, max_width):
         spans = parse_line_spans(raw_line)
         if str(raw_line).startswith("原文"):
             spans = [(strip_markdown(raw_line), SMALL_FONT, MUTED)]
-        wrapped = wrap_spans(draw, spans, max_width)
-        measured.append({"wrapped": wrapped, "is_list_item": is_list_item})
-        for wrapped_spans in wrapped:
-            height += line_height(wrapped_spans) + LINE_GAP
-        height += 16 if is_list_item else 8
+        paragraphs = split_spans_into_paragraphs(spans)
+        for paragraph_index, paragraph_spans in enumerate(paragraphs):
+            wrapped = wrap_spans(draw, paragraph_spans, max_width)
+            paragraph_break = paragraph_index < len(paragraphs) - 1
+            measured.append(
+                {
+                    "wrapped": wrapped,
+                    "is_list_item": is_list_item and paragraph_index == 0,
+                    "paragraph_break": paragraph_break,
+                }
+            )
+            for wrapped_spans in wrapped:
+                height += line_height(wrapped_spans) + LINE_GAP
+            if paragraph_break:
+                height += PARAGRAPH_GAP
+            else:
+                height += 16 if is_list_item else 8
     return measured, max(0, height - 8)
 
 
@@ -459,7 +506,10 @@ def render_daily_image(title, sections, output_path=None, width=DEFAULT_WIDTH):
                         draw.text((x, text_y), text, font=font, fill=color)
                         x += draw.textlength(text, font=font)
                     text_y += line_height(wrapped) + LINE_GAP
-                text_y += 16 if line_group["is_list_item"] else 8
+                if line_group.get("paragraph_break"):
+                    text_y += PARAGRAPH_GAP
+                else:
+                    text_y += 16 if line_group["is_list_item"] else 8
             y = panel_bottom + PANEL_GAP
 
     if not output_path:
