@@ -209,6 +209,13 @@ def get_redfox_raw_cache(payload):
     record = cache.get(redfox_cache_key(payload))
     if not record or REDFOX_FORCE_REFRESH:
         return None
+    expected_date = digest_day().strftime("%Y-%m-%d")
+    if record.get("date") != expected_date:
+        log_progress(
+            "redfox raw cache date mismatch "
+            f"cached={record.get('date') or '-'} expected={expected_date}"
+        )
+        return None
     if is_today_digest():
         if is_formal_run():
             log_progress("redfox raw cache skipped for formal run on today")
@@ -260,6 +267,66 @@ def fetch_redfox_list(url, payload):
     return items
 
 
+def source_publish_time(raw):
+    return compact_text(
+        raw.get("publishTime")
+        or raw.get("publicTime")
+        or raw.get("gmtCreate")
+        or raw.get("createTime")
+        or raw.get("time")
+    )
+
+
+def parse_source_date(value):
+    value = compact_text(value)
+    if not value:
+        return None
+    if re.fullmatch(r"\d{10,13}", value):
+        timestamp = int(value)
+        if len(value) == 13:
+            timestamp /= 1000
+        try:
+            return datetime.fromtimestamp(timestamp, SH_TZ).date()
+        except (OverflowError, OSError, ValueError):
+            return None
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        match = re.search(r"\d{4}-\d{2}-\d{2}", value)
+        if not match:
+            return None
+        try:
+            return datetime.strptime(match.group(0), "%Y-%m-%d").date()
+        except ValueError:
+            return None
+    if parsed.tzinfo:
+        parsed = parsed.astimezone(SH_TZ)
+    return parsed.date()
+
+
+def filter_items_for_digest_date(items):
+    expected = digest_day().date()
+    kept = []
+    stale = 0
+    missing = 0
+    for item in items:
+        published = parse_source_date(item.get("publishTime"))
+        if published is None:
+            missing += 1
+            continue
+        if published != expected:
+            stale += 1
+            continue
+        kept.append(item)
+    if stale or missing:
+        log_progress(
+            "ai date filter "
+            f"expected={expected.isoformat()} kept={len(kept)} stale={stale} missing={missing}"
+        )
+    return kept
+
+
 def normalize_gzh(raw):
     title = compact_text(raw.get("title"))
     if not title:
@@ -278,7 +345,7 @@ def normalize_gzh(raw):
         "likeCount": int_value(raw.get("likeCount")),
         "commentCount": int_value(raw.get("commentCount")),
         "shareCount": int_value(raw.get("shareCount")),
-        "publishTime": compact_text(raw.get("publishTime") or raw.get("publicTime")),
+        "publishTime": source_publish_time(raw),
     }
 
 
@@ -300,7 +367,7 @@ def normalize_xhs(raw):
         "likeCount": int_value(raw.get("likeCount")),
         "commentCount": int_value(raw.get("commentCount")),
         "shareCount": int_value(raw.get("shareCount")),
-        "publishTime": compact_text(raw.get("publishTime") or raw.get("time")),
+        "publishTime": source_publish_time(raw),
     }
 
 
@@ -352,6 +419,7 @@ def load_ai_items():
             continue
         seen.add(key)
         deduped.append(item)
+    deduped = filter_items_for_digest_date(deduped)
     deduped = dedupe_by_similarity(
         deduped,
         lambda item: f"{item.get('title', '')} {item.get('summary', '')}",
