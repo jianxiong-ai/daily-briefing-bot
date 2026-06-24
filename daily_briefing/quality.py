@@ -24,6 +24,29 @@ def text_similarity(left, right):
     return len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
 
 
+def text_containment(left, right):
+    left_tokens = char_ngrams(left)
+    right_tokens = char_ngrams(right)
+    if not left_tokens or not right_tokens:
+        return 0.0
+    return len(left_tokens & right_tokens) / min(len(left_tokens), len(right_tokens))
+
+
+def is_similar_event(left_title, left_text, right_title, right_text):
+    left_title_tokens = char_ngrams(left_title)
+    right_title_tokens = char_ngrams(right_title)
+    shared_title_tokens = left_title_tokens & right_title_tokens
+    title_containment = text_containment(left_title, right_title)
+    if title_containment >= 0.38 and len(shared_title_tokens) >= 3:
+        return True
+
+    body_containment = text_containment(
+        f"{left_title} {left_text}",
+        f"{right_title} {right_text}",
+    )
+    return len(shared_title_tokens) >= 3 and body_containment >= 0.15
+
+
 def dedupe_by_similarity(items, key, threshold=0.72):
     kept = []
     seen_values = []
@@ -94,4 +117,3 @@ LOW_PRIORITY_TOPIC_TERMS = (
 def low_priority_topic_sort_key(item):
     topic = item.get("topic", "") if isinstance(item, dict) else str(item or "")
     return 1 if any(term in topic for term in LOW_PRIORITY_TOPIC_TERMS) else 0
-

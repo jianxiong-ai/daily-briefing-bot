@@ -35,7 +35,7 @@ from daily_briefing.redfox import (
     RawJsonCache,
     post_json as shared_redfox_post_json,
 )
-from daily_briefing.quality import is_local_weather_noise
+from daily_briefing.quality import is_local_weather_noise, is_similar_event
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -762,10 +762,55 @@ def quality_score(article):
     return score
 
 
+def dedupe_hot_events(articles):
+    ranked = sorted(articles, key=lambda item: item["qualityScore"], reverse=True)
+    parents = list(range(len(ranked)))
+
+    def find(index):
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    def union(left, right):
+        left_root = find(left)
+        right_root = find(right)
+        if left_root != right_root:
+            parents[right_root] = left_root
+
+    for left_index, left in enumerate(ranked):
+        for right_index in range(left_index + 1, len(ranked)):
+            right = ranked[right_index]
+            if is_similar_event(
+                left.get("title", ""),
+                left.get("summary", ""),
+                right.get("title", ""),
+                right.get("summary", ""),
+            ):
+                union(left_index, right_index)
+
+    kept = []
+    cluster_winners = {}
+    for index, article in enumerate(ranked):
+        root = find(index)
+        winner = cluster_winners.get(root)
+        if winner is None:
+            cluster_winners[root] = article
+            kept.append(article)
+            continue
+        log_progress(
+            "hot duplicate skipped "
+            f"title={article.get('title', '')[:45]} "
+            f"kept={winner.get('title', '')[:45]}"
+        )
+    return kept
+
+
 def diversify_articles(articles):
     for item in articles:
         item["category"] = classify_article(item)
         item["qualityScore"] = quality_score(item)
+    articles = dedupe_hot_events(articles)
 
     preferred = [item for item in articles if not is_low_value_article(item) and not is_remote_local_weather(item)]
     if len(preferred) >= min(6, WECHAT_HOT_REPORT_LIMIT):
