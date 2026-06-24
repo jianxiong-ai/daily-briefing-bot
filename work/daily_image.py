@@ -20,7 +20,7 @@ CARD_GAP = 54
 PANEL_GAP = 28
 PANEL_PAD_X = 42
 PANEL_PAD_Y = 34
-LINE_GAP = 15
+LINE_GAP = 18
 
 CARD_BG = "#eaf4ff"
 PANEL_BG = "#fafdff"
@@ -71,12 +71,12 @@ def _font_with_index(size, index):
 
 
 TITLE_FONT = _font(58, True)
-SUBTITLE_FONT = _font(25, True)
-CHIP_FONT = _font(30, True)
-SECTION_FONT = _font(31, True)
-BODY_FONT = _font_with_index(28, 1)
-BOLD_FONT = _font(28, True)
-SMALL_FONT = _font(23, False)
+SUBTITLE_FONT = _font(27, True)
+CHIP_FONT = _font(32, True)
+SECTION_FONT = _font(33, True)
+BODY_FONT = _font_with_index(32, 1)
+BOLD_FONT = _font(32, True)
+SMALL_FONT = _font(26, False)
 
 
 def compact_text(value):
