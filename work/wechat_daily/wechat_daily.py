@@ -36,6 +36,7 @@ from daily_briefing.redfox import (
     post_json as shared_redfox_post_json,
 )
 from daily_briefing.quality import is_local_weather_noise, is_similar_event
+from daily_briefing.storage import runtime_storage
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -62,6 +63,7 @@ def selected_robots(robots):
 
 load_env_file(SHARED_ENV_PATH, override=False)
 load_env_file(ENV_PATH, override=False)
+STORAGE = runtime_storage("wechat")
 
 REDFOX_API_KEY = os.environ.get("REDFOX_API_KEY", "").strip()
 REDFOX_HOT_ARTICLE_URL = os.environ.get(
@@ -84,9 +86,9 @@ WECHAT_DAILY_TITLE = os.environ.get("WECHAT_DAILY_TITLE", "昨日公众号信息
 WECHAT_ORIGINAL_FETCH_ENABLED = os.environ.get("WECHAT_ORIGINAL_FETCH_ENABLED", "1").strip() != "0"
 WECHAT_ORIGINAL_FETCH_LIMIT = int(os.environ.get("WECHAT_ORIGINAL_FETCH_LIMIT", "3"))
 WECHAT_ORIGINAL_TEXT_LIMIT = int(os.environ.get("WECHAT_ORIGINAL_TEXT_LIMIT", "1800"))
-WECHAT_ORIGINAL_CACHE_FILE = os.environ.get("WECHAT_ORIGINAL_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "original_article_cache.json"))
+WECHAT_ORIGINAL_CACHE_FILE = os.environ.get("WECHAT_ORIGINAL_CACHE_FILE", str(STORAGE.cache / "original_article_cache.json"))
 REDFOX_PAGE_SIZE = int(os.environ.get("REDFOX_PAGE_SIZE", str(max(50, WECHAT_HOT_CANDIDATE_LIMIT))))
-REDFOX_RAW_CACHE_FILE = os.environ.get("REDFOX_RAW_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "redfox_raw_cache.json"))
+REDFOX_RAW_CACHE_FILE = os.environ.get("REDFOX_RAW_CACHE_FILE", str(STORAGE.cache / "redfox_raw_cache.json"))
 REDFOX_FORCE_REFRESH = os.environ.get("REDFOX_FORCE_REFRESH", "0").strip() == "1"
 REDFOX_TODAY_CACHE_TTL_SECONDS = int(os.environ.get("REDFOX_TODAY_CACHE_TTL_SECONDS", "3600"))
 REDFOX_HOT_STABLE_AFTER_HOURS = int(os.environ.get("REDFOX_HOT_STABLE_AFTER_HOURS", "8"))
@@ -134,8 +136,8 @@ DEEPSEEK_KEY_INDEX = 0
 REDFOX_CACHE_LOCK = Lock()
 REDFOX_CACHE_STORE = RawJsonCache(REDFOX_RAW_CACHE_FILE, max_entries=120)
 
-APP_DATA_DIR = os.path.dirname(ENV_PATH) if ENV_PATH else os.getcwd()
-LLM_CACHE_FILE = os.environ.get("WECHAT_LLM_CACHE_FILE", os.path.join(APP_DATA_DIR, "llm_summary_cache.jsonl"))
+APP_DATA_DIR = str(STORAGE.images)
+LLM_CACHE_FILE = os.environ.get("WECHAT_LLM_CACHE_FILE", str(STORAGE.cache / "llm_summary_cache.jsonl"))
 LLM_CACHE_TTL_SECONDS = int(os.environ.get("WECHAT_LLM_CACHE_TTL_SECONDS", os.environ.get("LLM_CACHE_TTL_SECONDS", "43200")))
 LLM_CACHE_ENABLED = os.environ.get("LLM_CACHE_ENABLED", "1").strip() != "0"
 LLM_PROMPT_VERSION = os.environ.get("WECHAT_LLM_PROMPT_VERSION", "wechat-hot-v1").strip()

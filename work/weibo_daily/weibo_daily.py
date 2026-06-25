@@ -31,6 +31,7 @@ from daily_briefing.push import (
     truncate_utf8_plain as push_truncate_utf8_plain,
     wechat_work_markdown as push_wechat_work_markdown,
 )
+from daily_briefing.storage import runtime_storage
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -58,6 +59,7 @@ def selected_robots(robots):
 
 
 load_env_file(ENV_PATH)
+STORAGE = runtime_storage("weibo")
 
 DESKTOP_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -105,15 +107,15 @@ LLM_MAX_CONCURRENT_REQUESTS = int(os.environ.get("LLM_MAX_CONCURRENT_REQUESTS", 
 LLM_SEMAPHORE = BoundedSemaphore(max(1, LLM_MAX_CONCURRENT_REQUESTS))
 DEEPSEEK_KEY_LOCK = Lock()
 DEEPSEEK_KEY_INDEX = 0
-APP_DATA_DIR = os.path.dirname(ENV_PATH) if ENV_PATH else os.getcwd()
-LLM_CACHE_FILE = os.environ.get("LLM_CACHE_FILE", os.path.join(APP_DATA_DIR, "llm_summary_cache.jsonl"))
+APP_DATA_DIR = str(STORAGE.images)
+LLM_CACHE_FILE = os.environ.get("LLM_CACHE_FILE", str(STORAGE.cache / "llm_summary_cache.jsonl"))
 LLM_CACHE_TTL_SECONDS = int(os.environ.get("LLM_CACHE_TTL_SECONDS", "21600"))
 LLM_CACHE_ENABLED = os.environ.get("LLM_CACHE_ENABLED", "1").strip() != "0"
 LLM_PROMPT_VERSION = os.environ.get("LLM_PROMPT_VERSION", "weibo-v1").strip()
 PRECOMPUTE_ONLY = os.environ.get("PRECOMPUTE_ONLY", "").strip() == "1"
 HOT_ARCHIVE_FILE = os.environ.get(
     "HOT_ARCHIVE_FILE",
-    os.path.join(APP_DATA_DIR, "weibo_hot_history.jsonl"),
+    str(STORAGE.state / "weibo_hot_history.jsonl"),
 )
 COLLECT_HOT_ONLY = os.environ.get("COLLECT_HOT_ONLY", "").strip() == "1"
 HOT_COLLECT_START = os.environ.get("HOT_COLLECT_START", "08:00")
@@ -248,7 +250,7 @@ EXCLUDED_REPOST_AUTHORS = {"谢欣哲", "蘸盐", "小特叔叔"}
 MAX_WORKERS = int(os.environ.get("WEIBO_FETCH_WORKERS", "8"))
 
 if not WEIBO_COOKIE_FILE:
-    default_cookie_file = os.path.join(APP_DATA_DIR, "weibo.cookie")
+    default_cookie_file = str(STORAGE.state / "weibo.cookie")
     if os.path.exists(default_cookie_file):
         WEIBO_COOKIE_FILE = default_cookie_file
 

@@ -38,6 +38,7 @@ from daily_briefing.redfox import (
     post_json as shared_redfox_post_json,
     redfox_cache_key as shared_redfox_cache_key,
 )
+from daily_briefing.storage import runtime_storage
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -62,6 +63,7 @@ def selected_robots(robots):
 
 
 load_env_file(ENV_PATH, override=False)
+STORAGE = runtime_storage("douyin")
 
 REDFOX_API_KEY = os.environ.get("REDFOX_API_KEY", "").strip()
 REDFOX_DOUYIN_LIKES_RANK_URL = os.environ.get(
@@ -73,7 +75,7 @@ DOUYIN_CATEGORY = os.environ.get("DOUYIN_CATEGORY", "全部").strip() or "全部
 DOUYIN_REPORT_LIMIT = int(os.environ.get("DOUYIN_REPORT_LIMIT", "15"))
 DOUYIN_LLM_INPUT_LIMIT = int(os.environ.get("DOUYIN_LLM_INPUT_LIMIT", "30"))
 REDFOX_TIMEOUT_SECONDS = int(os.environ.get("REDFOX_TIMEOUT_SECONDS", "90"))
-REDFOX_RAW_CACHE_FILE = os.environ.get("REDFOX_RAW_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "redfox_raw_cache.json"))
+REDFOX_RAW_CACHE_FILE = os.environ.get("REDFOX_RAW_CACHE_FILE", str(STORAGE.cache / "redfox_raw_cache.json"))
 REDFOX_FORCE_REFRESH = os.environ.get("REDFOX_FORCE_REFRESH", "0").strip() == "1"
 REDFOX_TODAY_CACHE_TTL_SECONDS = int(os.environ.get("REDFOX_TODAY_CACHE_TTL_SECONDS", "3600"))
 DAILY_RUN_MODE = os.environ.get("DAILY_RUN_MODE", "").strip().lower()
@@ -105,10 +107,10 @@ LLM_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT_SECONDS", "270"))
 LLM_MAX_CONCURRENT_REQUESTS = int(os.environ.get("LLM_MAX_CONCURRENT_REQUESTS", "4"))
 LLM_CACHE_ENABLED = os.environ.get("LLM_CACHE_ENABLED", "1").strip() != "0"
 LLM_CACHE_TTL_SECONDS = int(os.environ.get("LLM_CACHE_TTL_SECONDS", "21600"))
-LLM_CACHE_FILE = os.environ.get("DOUYIN_LLM_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "llm_summary_cache.jsonl"))
+LLM_CACHE_FILE = os.environ.get("DOUYIN_LLM_CACHE_FILE", str(STORAGE.cache / "llm_summary_cache.jsonl"))
 LLM_PROMPT_VERSION = os.environ.get("DOUYIN_LLM_PROMPT_VERSION", "douyin-v4")
 
-APP_DATA_DIR = os.path.dirname(ENV_PATH)
+APP_DATA_DIR = str(STORAGE.images)
 SH_TZ = timezone(timedelta(hours=8))
 REDFOX_CACHE_LOCK = Lock()
 REDFOX_CACHE_STORE = RawJsonCache(REDFOX_RAW_CACHE_FILE, max_entries=90)

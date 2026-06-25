@@ -5,11 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .reports import get_report
+from .storage import default_data_root, runtime_storage
 
 
 @dataclass(frozen=True)
 class LaunchdInstallResult:
     app_dir: Path
+    log_dir: Path
     wrapper_path: Path
     plist_path: Path
     label: str
@@ -17,14 +19,14 @@ class LaunchdInstallResult:
 
 
 def default_app_dir(report_name):
-    return Path.home() / "Library/Application Support/DailyBriefingBot" / f"{report_name}_daily"
+    return default_data_root() / report_name
 
 
 def default_label(report_name):
     return f"com.daily-briefing.{report_name}"
 
 
-def render_wrapper(*, app_dir, project_dir, report_name, env_file, python_bin):
+def render_wrapper(*, app_dir, log_dir, project_dir, report_name, env_file, python_bin):
     return f"""#!/bin/zsh
 set -eu
 
@@ -33,7 +35,7 @@ PROJECT_DIR="${{PROJECT_DIR:-{project_dir}}}"
 PYTHON_BIN="${{PYTHON_BIN:-{python_bin}}}"
 REPORT_NAME="${{REPORT_NAME:-{report_name}}}"
 ENV_FILE="${{ENV_FILE:-{env_file}}}"
-LOG_DIR="$APP_DIR/logs"
+LOG_DIR="${{LOG_DIR:-{log_dir}}}"
 mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIR"
 REPORT_LOG="$LOG_DIR/report.log"
@@ -45,6 +47,7 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 set +e
+"$PYTHON_BIN" -m daily_briefing.cli cleanup "$REPORT_NAME" --quiet >> "$LOG_DIR/cleanup.log" 2>&1 || true
 "$PYTHON_BIN" -m daily_briefing.cli run "$REPORT_NAME" --env "$ENV_FILE" >> "$REPORT_LOG" 2>&1
 run_status=$?
 set -e
@@ -60,7 +63,7 @@ exit "$run_status"
 """
 
 
-def render_plist(*, label, app_dir, hour=None, minute=None, interval_seconds=None):
+def render_plist(*, label, app_dir, log_dir, hour=None, minute=None, interval_seconds=None):
     if interval_seconds:
         trigger = f"""  <key>StartInterval</key>
   <integer>{int(interval_seconds)}</integer>"""
@@ -86,9 +89,9 @@ def render_plist(*, label, app_dir, hour=None, minute=None, interval_seconds=Non
   <string>{app_dir}</string>
 {trigger}
   <key>StandardOutPath</key>
-  <string>{app_dir}/logs/launchd.out.log</string>
+  <string>{log_dir}/launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>{app_dir}/logs/launchd.err.log</string>
+  <string>{log_dir}/launchd.err.log</string>
 </dict>
 </plist>
 """
@@ -115,15 +118,17 @@ def install_launchd_report(
 
     app_dir = Path(app_dir).expanduser() if app_dir else default_app_dir(report_name)
     project_dir = Path(project_dir).expanduser().resolve()
-    env_file = Path(env_file).expanduser() if env_file else app_dir / ".env"
+    env_file = Path(env_file).expanduser() if env_file else report.default_env
+    log_dir = runtime_storage(report.name).logs
     label = label or default_label(report_name)
     app_dir.mkdir(parents=True, exist_ok=True)
-    (app_dir / "logs").mkdir(exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
 
     wrapper_path = app_dir / "run_report.sh"
     wrapper_path.write_text(
         render_wrapper(
             app_dir=app_dir,
+            log_dir=log_dir,
             project_dir=project_dir,
             report_name=report.name,
             env_file=env_file,
@@ -139,6 +144,7 @@ def install_launchd_report(
         render_plist(
             label=label,
             app_dir=app_dir,
+            log_dir=log_dir,
             hour=hour,
             minute=minute,
             interval_seconds=interval_seconds,
@@ -150,7 +156,14 @@ def install_launchd_report(
         uid = os.getuid()
         subprocess.run(["launchctl", "bootout", f"gui/{uid}", str(plist_path)], capture_output=True, text=True)
         subprocess.run(["launchctl", "bootstrap", f"gui/{uid}", str(plist_path)], check=True)
-    return LaunchdInstallResult(app_dir=app_dir, wrapper_path=wrapper_path, plist_path=plist_path, label=label, loaded=load)
+    return LaunchdInstallResult(
+        app_dir=app_dir,
+        log_dir=log_dir,
+        wrapper_path=wrapper_path,
+        plist_path=plist_path,
+        label=label,
+        loaded=load,
+    )
 
 
 def copy_example_env(report_name, app_dir, overwrite=False):

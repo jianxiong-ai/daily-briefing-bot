@@ -8,6 +8,7 @@ from .config import has_errors, mask_value, parse_env_file, validate_report_conf
 from .doctor import doctor_reports, findings_have_errors
 from .launchd import copy_example_env, install_launchd_report
 from .reports import REPORTS, get_report
+from .storage import cleanup_runtime, compact_jsonl_cache, runtime_storage
 
 
 def list_reports(_args):
@@ -110,10 +111,31 @@ def launchd_install_command(args):
         env_path = copy_example_env(args.report, result.app_dir, overwrite=args.overwrite_env)
         print(f"env: {env_path}")
     print(f"app_dir: {result.app_dir}")
+    print(f"log_dir: {result.log_dir}")
     print(f"wrapper: {result.wrapper_path}")
     print(f"plist: {result.plist_path}")
     print(f"label: {result.label}")
     print(f"loaded: {result.loaded}")
+    return 0
+
+
+def cleanup_command(args):
+    storage = runtime_storage(args.report)
+    stats = cleanup_runtime(
+        storage,
+        image_days=args.image_days,
+        log_days=args.log_days,
+        temp_days=args.temp_days,
+    )
+    cache_path = storage.cache / "llm_summary_cache.jsonl"
+    retained = compact_jsonl_cache(cache_path, args.llm_cache_ttl) if cache_path.exists() else 0
+    if not args.quiet:
+        print(f"report: {args.report}")
+        print(f"runtime: {storage.root}")
+        print(f"logs: {storage.logs}")
+        for key, value in stats.items():
+            print(f"{key}: {value}")
+        print(f"llm_cache_records: {retained}")
     return 0
 
 
@@ -176,13 +198,22 @@ def build_parser():
     alert_parser.add_argument("--push-targets", choices=("all", "primary"), default="primary")
     alert_parser.set_defaults(func=alert_command)
 
+    cleanup_parser = subparsers.add_parser("cleanup", help="Clean generated runtime files")
+    cleanup_parser.add_argument("report", choices=sorted(REPORTS))
+    cleanup_parser.add_argument("--image-days", type=int, default=14)
+    cleanup_parser.add_argument("--log-days", type=int, default=30)
+    cleanup_parser.add_argument("--temp-days", type=int, default=2)
+    cleanup_parser.add_argument("--llm-cache-ttl", type=int, default=7 * 86400)
+    cleanup_parser.add_argument("--quiet", action="store_true")
+    cleanup_parser.set_defaults(func=cleanup_command)
+
     launchd_parser = subparsers.add_parser("launchd", help="Manage macOS launchd jobs")
     launchd_subparsers = launchd_parser.add_subparsers(dest="launchd_command", required=True)
     install_parser = launchd_subparsers.add_parser("install", help="Install or update a launchd report job")
     install_parser.add_argument("report", choices=sorted(REPORTS))
     install_parser.add_argument("--project-dir", default=str(Path.cwd()), help="Project directory to run")
     install_parser.add_argument("--app-dir", help="Application Support directory for env and logs")
-    install_parser.add_argument("--env", help="Env file path. Defaults to APP_DIR/.env")
+    install_parser.add_argument("--env", help="Env file path. Defaults to the repository report .env")
     install_parser.add_argument("--label", help="launchd label")
     install_parser.add_argument("--hour", type=int, help="Daily schedule hour")
     install_parser.add_argument("--minute", type=int, help="Daily schedule minute")

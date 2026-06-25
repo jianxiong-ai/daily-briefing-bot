@@ -29,6 +29,7 @@ from daily_briefing.push import (
     truncate_utf8_plain as push_truncate_utf8_plain,
     wechat_work_markdown as push_wechat_work_markdown,
 )
+from daily_briefing.storage import runtime_storage
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -56,6 +57,7 @@ def selected_robots(robots):
 
 
 load_env_file(ENV_PATH)
+STORAGE = runtime_storage("cctv")
 
 FEISHU_WEBHOOK = os.environ.get("FEISHU_WEBHOOK", "").strip()
 WECHAT_WORK_WEBHOOK = os.environ.get("WECHAT_WORK_WEBHOOK", "").strip()
@@ -100,8 +102,8 @@ LLM_SEMAPHORE = BoundedSemaphore(max(1, LLM_MAX_CONCURRENT_REQUESTS))
 DEEPSEEK_KEY_LOCK = Lock()
 DEEPSEEK_KEY_INDEX = 0
 
-APP_DATA_DIR = os.path.dirname(ENV_PATH) if ENV_PATH else os.getcwd()
-LLM_CACHE_FILE = os.environ.get("LLM_CACHE_FILE", os.path.join(APP_DATA_DIR, "llm_summary_cache.jsonl"))
+APP_DATA_DIR = str(STORAGE.images)
+LLM_CACHE_FILE = os.environ.get("LLM_CACHE_FILE", str(STORAGE.cache / "llm_summary_cache.jsonl"))
 LLM_CACHE_TTL_SECONDS = int(os.environ.get("LLM_CACHE_TTL_SECONDS", "43200"))
 LLM_CACHE_ENABLED = os.environ.get("LLM_CACHE_ENABLED", "1").strip() != "0"
 LLM_PROMPT_VERSION = os.environ.get("LLM_PROMPT_VERSION", "cctv-v1").strip()

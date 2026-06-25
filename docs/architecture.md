@@ -1,5 +1,9 @@
 # Architecture
 
+Runtime files are separated from source code. See
+[Runtime Storage](runtime-storage.md) for the normalized cache, image, state,
+and log directories and their retention policy.
+
 Daily Briefing Bot is organized as a thin CLI, report-specific scripts, and a
 small shared core for runtime helpers and image rendering.
 

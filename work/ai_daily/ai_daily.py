@@ -41,6 +41,7 @@ from daily_briefing.redfox import (
     redfox_cache_key as shared_redfox_cache_key,
 )
 from daily_briefing.quality import dedupe_by_similarity
+from daily_briefing.storage import runtime_storage
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -65,6 +66,7 @@ def selected_robots(robots):
 
 
 load_env_file(ENV_PATH, override=False)
+STORAGE = runtime_storage("ai")
 
 REDFOX_API_KEY = os.environ.get("REDFOX_API_KEY", "").strip()
 XHS_AI_URL = os.environ.get("AI_XHS_URL", "https://redfox.hk/story/api/parseWork/queryXhsAiMsgs").strip()
@@ -77,15 +79,15 @@ AIHOT_PAGE_SIZE = int(os.environ.get("AIHOT_PAGE_SIZE", "100"))
 AIHOT_MAX_PAGES = int(os.environ.get("AIHOT_MAX_PAGES", "3"))
 AIHOT_TIMEOUT_SECONDS = int(os.environ.get("AIHOT_TIMEOUT_SECONDS", "45"))
 AIHOT_FORCE_REFRESH = os.environ.get("AIHOT_FORCE_REFRESH", "0").strip() == "1"
-AIHOT_CACHE_FILE = os.environ.get("AIHOT_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "aihot_raw_cache.json"))
+AIHOT_CACHE_FILE = os.environ.get("AIHOT_CACHE_FILE", str(STORAGE.cache / "aihot_raw_cache.json"))
 AI_INPUT_LIMIT = int(os.environ.get("AI_INPUT_LIMIT", "80"))
 AI_TOPIC_LIMIT = int(os.environ.get("AI_TOPIC_LIMIT", "8"))
 AI_DEDUP_ENABLED = os.environ.get("AI_DEDUP_ENABLED", "1").strip() != "0"
 AI_DEDUP_LOOKBACK_DAYS = int(os.environ.get("AI_DEDUP_LOOKBACK_DAYS", "7"))
-AI_HISTORY_FILE = os.environ.get("AI_HISTORY_FILE", os.path.join(os.path.dirname(ENV_PATH), "ai_daily_history.json"))
+AI_HISTORY_FILE = os.environ.get("AI_HISTORY_FILE", str(STORAGE.state / "ai_daily_history.json"))
 AI_HISTORY_VERSION = os.environ.get("AI_HISTORY_VERSION", "aihot-v1").strip() or "aihot-v1"
 REDFOX_TIMEOUT_SECONDS = int(os.environ.get("REDFOX_TIMEOUT_SECONDS", "90"))
-REDFOX_RAW_CACHE_FILE = os.environ.get("REDFOX_RAW_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "redfox_raw_cache.json"))
+REDFOX_RAW_CACHE_FILE = os.environ.get("REDFOX_RAW_CACHE_FILE", str(STORAGE.cache / "redfox_raw_cache.json"))
 REDFOX_FORCE_REFRESH = os.environ.get("REDFOX_FORCE_REFRESH", "0").strip() == "1"
 REDFOX_TODAY_CACHE_TTL_SECONDS = int(os.environ.get("REDFOX_TODAY_CACHE_TTL_SECONDS", "3600"))
 DAILY_RUN_MODE = os.environ.get("DAILY_RUN_MODE", "").strip().lower()
@@ -117,10 +119,10 @@ LLM_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT_SECONDS", "270"))
 LLM_MAX_CONCURRENT_REQUESTS = int(os.environ.get("LLM_MAX_CONCURRENT_REQUESTS", "4"))
 LLM_CACHE_ENABLED = os.environ.get("LLM_CACHE_ENABLED", "1").strip() != "0"
 LLM_CACHE_TTL_SECONDS = int(os.environ.get("LLM_CACHE_TTL_SECONDS", "21600"))
-LLM_CACHE_FILE = os.environ.get("AI_LLM_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "llm_summary_cache.jsonl"))
+LLM_CACHE_FILE = os.environ.get("AI_LLM_CACHE_FILE", str(STORAGE.cache / "llm_summary_cache.jsonl"))
 LLM_PROMPT_VERSION = os.environ.get("AI_LLM_PROMPT_VERSION", "ai-v4")
 
-APP_DATA_DIR = os.path.dirname(ENV_PATH)
+APP_DATA_DIR = str(STORAGE.images)
 SH_TZ = timezone(timedelta(hours=8))
 REDFOX_CACHE_LOCK = Lock()
 REDFOX_CACHE_STORE = RawJsonCache(REDFOX_RAW_CACHE_FILE, max_entries=120)

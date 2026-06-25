@@ -83,7 +83,7 @@ def doctor_report(report_name, env_path=None, check_network=False):
     report = REPORTS[report_name]
     env_path = Path(env_path).expanduser() if env_path else report.default_env
     app_dir = report.default_app_support_dir
-    log_path = app_dir / report.log_file if report.log_file else app_dir / "logs/report.log"
+    log_path = report.default_log_dir / report.log_file if report.log_file else report.default_log_dir / "report.log"
     findings = [
         DoctorLine("ok" if report.script.exists() else "error", f"script: {report.script}"),
         DoctorLine("ok" if env_path.exists() else "error", f"env: {env_path}"),

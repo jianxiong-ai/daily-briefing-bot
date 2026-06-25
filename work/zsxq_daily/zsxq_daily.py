@@ -31,6 +31,7 @@ from daily_briefing.push import (
     wechat_work_markdown as push_wechat_work_markdown,
 )
 from daily_briefing.quality import low_priority_topic_sort_key
+from daily_briefing.storage import runtime_storage
 try:
     from daily_image import render_daily_image, send_feishu_image, upload_feishu_image
 except Exception:
@@ -58,6 +59,7 @@ def selected_robots(robots):
 
 
 load_env_file(ENV_PATH)
+STORAGE = runtime_storage("zsxq")
 
 FEISHU_WEBHOOK = os.environ.get("FEISHU_WEBHOOK", "").strip()
 WECHAT_WORK_WEBHOOK = os.environ.get("WECHAT_WORK_WEBHOOK", "").strip()
@@ -114,8 +116,8 @@ LLM_RETRY_BACKOFF_SECONDS = float(os.environ.get("LLM_RETRY_BACKOFF_SECONDS", "2
 LLM_BATCH_SIZE = int(os.environ.get("LLM_BATCH_SIZE", "8"))
 LLM_BATCH_WORKERS = int(os.environ.get("LLM_BATCH_WORKERS", "4"))
 LLM_MAX_CONCURRENT_REQUESTS = int(os.environ.get("LLM_MAX_CONCURRENT_REQUESTS", str(LLM_BATCH_WORKERS)))
-APP_DATA_DIR = os.path.dirname(ENV_PATH) if ENV_PATH else os.getcwd()
-LLM_CACHE_FILE = os.environ.get("LLM_CACHE_FILE", os.path.join(APP_DATA_DIR, "llm_summary_cache.jsonl"))
+APP_DATA_DIR = str(STORAGE.images)
+LLM_CACHE_FILE = os.environ.get("LLM_CACHE_FILE", str(STORAGE.cache / "llm_summary_cache.jsonl"))
 LLM_CACHE_TTL_SECONDS = int(os.environ.get("LLM_CACHE_TTL_SECONDS", "1800"))
 LLM_CACHE_ENABLED = os.environ.get("LLM_CACHE_ENABLED", "1").strip() != "0"
 LLM_PROMPT_VERSION = os.environ.get("LLM_PROMPT_VERSION", "zsxq-v2").strip()
