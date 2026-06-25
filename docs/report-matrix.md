@@ -23,6 +23,7 @@ python3 -m daily_briefing.cli run <report-name> \
 | AI Industry Daily | `ai` | `work/ai_daily/ai_daily.py` | AIHot selected feed, RedFox AI Xiaohongshu feed, LLM | AI topic clusters and source highlights |
 | CCTV Morning News Daily | `cctv` | `work/cctv_daily/cctv_daily.py` | CCTV program page, article pages, LLM | Morning news overview, key stories, section summaries |
 | Douyin Hot Works Daily | `douyin` | `work/douyin_daily/douyin_daily.py` | RedFox Douyin hot works feed, LLM | Hot-topic clusters from daily viral videos |
+| A-Share Market Daily | `astock` | `work/astock_daily/astock_daily.py` | RedFox multi-platform A-share search, A-share publisher feed, LLM | Market themes, institution/KOL viewpoints, and information-risk flags |
 | WeChat Official Account Daily | `wechat` | `work/wechat_daily/wechat_daily.py` | RedFox public account APIs, configured followed accounts, LLM | Hot public-account articles and followed-account summaries |
 | Weibo Daily | `weibo` | `work/weibo_daily/weibo_daily.py` | Weibo hot search feeds, followed bloggers, optional cookie, LLM | Hot-search overview and followed blogger activity |
 | Knowledge Planet Daily | `zsxq` | `work/zsxq_daily/zsxq_daily.py` | Knowledge Planet group APIs, cookie, LLM | Digest posts, selected authors, topic clusters |

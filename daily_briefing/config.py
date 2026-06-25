@@ -13,6 +13,10 @@ class ConfigIssue:
 
 
 REPORT_RULES = {
+    "astock": {
+        "required": ("REDFOX_API_KEY",),
+        "cookie_files": (),
+    },
     "ai": {
         "required": ("REDFOX_API_KEY",),
         "cookie_files": (),

@@ -33,6 +33,17 @@ class Report:
 
 
 REPORTS = {
+    "astock": Report(
+        name="astock",
+        title="A-share market daily",
+        script=ROOT / "work/astock_daily/astock_daily.py",
+        env_var="ASTOCK_DAILY_ENV",
+        example_env=ROOT / "examples/env/astock_daily.env.example",
+        default_env=ROOT / "work/astock_daily/.env",
+        launchd_label="com.jason.astock-daily",
+        app_support_name="CodexAStockDaily",
+        log_file="astock_daily.log",
+    ),
     "ai": Report(
         name="ai",
         title="AI industry daily",

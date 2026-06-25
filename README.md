@@ -19,6 +19,7 @@ deployment options.
   - WeChat official account hot articles and followed accounts
   - Douyin daily hot works
   - AI industry feed from public account and Xiaohongshu sources
+  - A-share market themes and institution/KOL viewpoints
 - LLM summaries with cache, timeout handling, fallback summaries, and multi-key
   concurrency support.
 - Image report rendering for Feishu image messages, with text-card fallback.
@@ -31,6 +32,7 @@ deployment options.
 ```text
 work/
   ai_daily/         AI industry briefing
+  astock_daily/     A-share market briefing
   cctv_daily/       CCTV 朝闻天下 briefing
   douyin_daily/     Douyin hot works briefing
   wechat_daily/     WeChat official account briefing

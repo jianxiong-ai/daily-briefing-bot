@@ -43,6 +43,7 @@ class SmokeTests(unittest.TestCase):
 
     def test_report_modules_import_without_credentials(self):
         modules = {
+            "astock_daily": "work/astock_daily/astock_daily.py",
             "ai_daily": "work/ai_daily/ai_daily.py",
             "cctv_daily": "work/cctv_daily/cctv_daily.py",
             "douyin_daily": "work/douyin_daily/douyin_daily.py",
@@ -69,6 +70,7 @@ class SmokeTests(unittest.TestCase):
         from daily_briefing.reports import REPORTS
 
         self.assertIn("wechat", REPORTS)
+        self.assertIn("astock", REPORTS)
         for report in REPORTS.values():
             with self.subTest(report=report.name):
                 self.assertTrue(report.script.exists(), report.script)

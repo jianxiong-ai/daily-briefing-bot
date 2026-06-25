@@ -56,6 +56,7 @@ small shared core for runtime helpers and image rendering.
 
 - `work/weibo_daily`: Weibo hot-topic and blogger digest.
 - `work/zsxq_daily`: Knowledge Planet group digest.
+- `work/astock_daily`: A-share market themes and institution/KOL viewpoint digest.
 - `work/cctv_daily`: CCTV `朝闻天下` digest.
 - `work/wechat_daily`: WeChat official account hot and followed-author digest.
 - `work/douyin_daily`: Douyin hot works digest.

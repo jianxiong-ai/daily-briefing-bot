@@ -98,6 +98,7 @@ For data sources, env variables, and scheduling notes, see the
 | Name | Report |
 | --- | --- |
 | `ai` | AI industry briefing |
+| `astock` | A-share market briefing |
 | `cctv` | CCTV `朝闻天下` briefing |
 | `douyin` | Douyin hot works briefing |
 | `wechat` | WeChat official account briefing |

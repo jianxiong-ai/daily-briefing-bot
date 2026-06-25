@@ -8,6 +8,7 @@ compile:
 	PYTHONPYCACHEPREFIX="$(PYCACHE)" $(PYTHON) -m py_compile \
 		daily_briefing/*.py \
 		work/daily_image.py \
+		work/astock_daily/astock_daily.py \
 		work/ai_daily/ai_daily.py \
 		work/cctv_daily/cctv_daily.py \
 		work/douyin_daily/douyin_daily.py \
