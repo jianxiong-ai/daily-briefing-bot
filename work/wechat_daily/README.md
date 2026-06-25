@@ -35,6 +35,10 @@ WECHAT_DAILY_ENV=work/wechat_daily/.env DIGEST_DATE=2026-06-12 PUSH_TARGETS=prim
 - `WECHAT_FOLLOW_MAX_PAGES`：关注作者每人最多翻页数，默认 2。第一页 `hasMore=1` 或 `total > list` 时才请求第二页。
 - `WECHAT_DIGEST_OFFSET_DAYS`：未显式传 `DIGEST_DATE` 时的日期偏移；设为 1 表示默认抓昨天。
 - `WECHAT_MIN_READS`：最低阅读量，默认 5000。
+- `WECHAT_MIN_HOT_ARTICLES`：完整日报要求的最低热门文章数，默认 6。
+- `WECHAT_REQUIRE_FOLLOW_CONTENT`：配置关注作者时是否要求至少抓到一篇文章，默认开启。
+- `WECHAT_SOURCE_RETRY_ATTEMPTS`：数据源不完整时最多抓取次数，默认 3 次。
+- `WECHAT_SOURCE_RETRY_DELAY_SECONDS`：不完整数据重试间隔，默认 600 秒。
 - `WECHAT_DAILY_TITLE`：日报标题，默认 `昨日公众号信息汇总`。
 - `REDFOX_PAGE_SIZE`：RedFox 单次请求条数，默认不低于 50。
 - `REDFOX_RAW_CACHE_FILE`：RedFox 原始响应缓存路径，默认 `work/wechat_daily/redfox_raw_cache.json`。
@@ -42,5 +46,9 @@ WECHAT_DAILY_ENV=work/wechat_daily/.env DIGEST_DATE=2026-06-12 PUSH_TARGETS=prim
 - `REDFOX_TODAY_CACHE_TTL_SECONDS`：当天测试缓存有效期，默认 3600 秒。
 - `REDFOX_TIMEOUT_SECONDS`：RedFox 接口请求超时，默认 90 秒。
 - `DAILY_RUN_MODE=formal`：正式推送模式。当天数据会绕过缓存重新请求 RedFox，历史日期仍可用缓存。
+
+正式任务会先检查数据完整度。热门数量不足时不会立即查询全部关注作者，
+而是等待 RedFox 完成昨日数据更新后重试；关注作者全部返回 0 时也会强制
+刷新。多次重试后仍不完整则退出并触发失败告警，不发送残缺日报。
 
 默认只读取 `work/wechat_daily/.env`，公众号日报的 RedFox、LLM、飞书、企业微信配置都放在这个文件里。若临时需要共享其他日报配置，可显式设置 `SHARED_DAILY_ENV=/path/to/.env`。
