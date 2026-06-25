@@ -5,6 +5,8 @@ import os
 import re
 import sys
 import time
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from multiprocessing import Process, Queue
 from threading import BoundedSemaphore, Lock
@@ -65,21 +67,23 @@ def selected_robots(robots):
 load_env_file(ENV_PATH, override=False)
 
 REDFOX_API_KEY = os.environ.get("REDFOX_API_KEY", "").strip()
-GZH_AI_URL = os.environ.get("AI_GZH_URL", "https://redfox.hk/story/api/parseWork/queryAiMsgs").strip()
 XHS_AI_URL = os.environ.get("AI_XHS_URL", "https://redfox.hk/story/api/parseWork/queryXhsAiMsgs").strip()
+AIHOT_ITEMS_URL = os.environ.get("AIHOT_ITEMS_URL", "https://aihot.virxact.com/api/public/items").strip()
 AI_DAILY_TITLE = os.environ.get("AI_DAILY_TITLE", "AI领域日报").strip()
-AI_GZH_KEYWORDS = [item.strip() for item in os.environ.get("AI_GZH_KEYWORDS", "AI").split(",") if item.strip()]
 AI_XHS_KEYWORD = os.environ.get("AI_XHS_KEYWORD", "AI").strip() or "AI"
-AI_GZH_PAGE_SIZE = int(os.environ.get("AI_GZH_PAGE_SIZE", "20"))
 AI_XHS_PAGE_SIZE = int(os.environ.get("AI_XHS_PAGE_SIZE", "50"))
-AI_GZH_USE_DATE_RANGE = os.environ.get("AI_GZH_USE_DATE_RANGE", "0").strip() == "1"
 AI_XHS_USE_DATE_RANGE = os.environ.get("AI_XHS_USE_DATE_RANGE", "1").strip() != "0"
-AI_GZH_MAX_AGE_DAYS = int(os.environ.get("AI_GZH_MAX_AGE_DAYS", "14"))
+AIHOT_PAGE_SIZE = int(os.environ.get("AIHOT_PAGE_SIZE", "100"))
+AIHOT_MAX_PAGES = int(os.environ.get("AIHOT_MAX_PAGES", "3"))
+AIHOT_TIMEOUT_SECONDS = int(os.environ.get("AIHOT_TIMEOUT_SECONDS", "45"))
+AIHOT_FORCE_REFRESH = os.environ.get("AIHOT_FORCE_REFRESH", "0").strip() == "1"
+AIHOT_CACHE_FILE = os.environ.get("AIHOT_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "aihot_raw_cache.json"))
 AI_INPUT_LIMIT = int(os.environ.get("AI_INPUT_LIMIT", "80"))
 AI_TOPIC_LIMIT = int(os.environ.get("AI_TOPIC_LIMIT", "8"))
 AI_DEDUP_ENABLED = os.environ.get("AI_DEDUP_ENABLED", "1").strip() != "0"
 AI_DEDUP_LOOKBACK_DAYS = int(os.environ.get("AI_DEDUP_LOOKBACK_DAYS", "7"))
 AI_HISTORY_FILE = os.environ.get("AI_HISTORY_FILE", os.path.join(os.path.dirname(ENV_PATH), "ai_daily_history.json"))
+AI_HISTORY_VERSION = os.environ.get("AI_HISTORY_VERSION", "aihot-v1").strip() or "aihot-v1"
 REDFOX_TIMEOUT_SECONDS = int(os.environ.get("REDFOX_TIMEOUT_SECONDS", "90"))
 REDFOX_RAW_CACHE_FILE = os.environ.get("REDFOX_RAW_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "redfox_raw_cache.json"))
 REDFOX_FORCE_REFRESH = os.environ.get("REDFOX_FORCE_REFRESH", "0").strip() == "1"
@@ -114,12 +118,14 @@ LLM_MAX_CONCURRENT_REQUESTS = int(os.environ.get("LLM_MAX_CONCURRENT_REQUESTS", 
 LLM_CACHE_ENABLED = os.environ.get("LLM_CACHE_ENABLED", "1").strip() != "0"
 LLM_CACHE_TTL_SECONDS = int(os.environ.get("LLM_CACHE_TTL_SECONDS", "21600"))
 LLM_CACHE_FILE = os.environ.get("AI_LLM_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "llm_summary_cache.jsonl"))
-LLM_PROMPT_VERSION = os.environ.get("AI_LLM_PROMPT_VERSION", "ai-v2")
+LLM_PROMPT_VERSION = os.environ.get("AI_LLM_PROMPT_VERSION", "ai-v3")
 
 APP_DATA_DIR = os.path.dirname(ENV_PATH)
 SH_TZ = timezone(timedelta(hours=8))
 REDFOX_CACHE_LOCK = Lock()
 REDFOX_CACHE_STORE = RawJsonCache(REDFOX_RAW_CACHE_FILE, max_entries=120)
+AIHOT_CACHE_LOCK = Lock()
+AIHOT_CACHE_STORE = RawJsonCache(AIHOT_CACHE_FILE, max_entries=30)
 LLM_SEMAPHORE = BoundedSemaphore(max(1, LLM_MAX_CONCURRENT_REQUESTS))
 LLM_CLIENT = LlmClient(
     LlmSettings(
@@ -268,6 +274,82 @@ def fetch_redfox_list(url, payload):
     return items
 
 
+def digest_window_utc():
+    start = digest_day().replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+    return start.astimezone(timezone.utc), end.astimezone(timezone.utc)
+
+
+def iso_utc(value):
+    return value.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def aihot_cache_payload():
+    start, end = digest_window_utc()
+    return {
+        "_cache_url": AIHOT_ITEMS_URL,
+        "mode": "selected",
+        "since": iso_utc(start),
+        "until": iso_utc(end),
+        "take": max(1, AIHOT_PAGE_SIZE),
+    }
+
+
+def fetch_aihot_page(params):
+    query = urllib.parse.urlencode(params)
+    request = urllib.request.Request(
+        f"{AIHOT_ITEMS_URL}?{query}",
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "DailyBriefingBot/0.2 (+https://github.com/jianxiong-ai/daily-briefing-bot)",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=AIHOT_TIMEOUT_SECONDS) as response:
+        body = json.loads(response.read().decode("utf-8"))
+    if not isinstance(body, dict) or not isinstance(body.get("items"), list):
+        raise RuntimeError("AIHot response missing items")
+    return body
+
+
+def fetch_aihot_items():
+    cache_payload = aihot_cache_payload()
+    cached = AIHOT_CACHE_STORE.get(cache_payload, force_refresh=AIHOT_FORCE_REFRESH)
+    if isinstance(cached, dict) and isinstance(cached.get("items"), list):
+        log_progress(f"aihot cache hit items={len(cached['items'])}")
+        return cached["items"]
+
+    params = {
+        "mode": "selected",
+        "since": cache_payload["since"],
+        "take": max(1, AIHOT_PAGE_SIZE),
+    }
+    items = []
+    seen = set()
+    cursor = ""
+    for page in range(1, max(1, AIHOT_MAX_PAGES) + 1):
+        if cursor:
+            params["cursor"] = cursor
+        body = fetch_aihot_page(params)
+        for raw in body.get("items") or []:
+            item_id = compact_text(raw.get("id") or raw.get("url") or raw.get("title"))
+            if not item_id or item_id in seen:
+                continue
+            seen.add(item_id)
+            items.append(raw)
+        cursor = compact_text(body.get("nextCursor"))
+        if not body.get("hasNext") or not cursor:
+            break
+        log_progress(f"aihot page loaded page={page} accumulated={len(items)}")
+
+    AIHOT_CACHE_STORE.set(
+        cache_payload,
+        {"items": items},
+        metadata={"date": digest_day().strftime("%Y-%m-%d")},
+    )
+    log_progress(f"aihot loaded items={len(items)}")
+    return items
+
+
 def source_publish_time(raw):
     return compact_text(
         raw.get("publishTime")
@@ -306,6 +388,20 @@ def parse_source_date(value):
     return parsed.date()
 
 
+def source_time_shanghai(value):
+    value = compact_text(value)
+    if not value:
+        return ""
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return value
+    if parsed.tzinfo:
+        parsed = parsed.astimezone(SH_TZ)
+    return parsed.strftime("%Y-%m-%d %H:%M")
+
+
 def filter_items_for_digest_date(items):
     expected = digest_day().date()
     kept = []
@@ -316,11 +412,7 @@ def filter_items_for_digest_date(items):
         if published is None:
             missing += 1
             continue
-        if item.get("channel") == "小红书":
-            valid = published == expected
-        else:
-            age_days = (expected - published).days
-            valid = 0 <= age_days <= max(0, AI_GZH_MAX_AGE_DAYS)
+        valid = published == expected
         if not valid:
             stale += 1
             continue
@@ -333,25 +425,25 @@ def filter_items_for_digest_date(items):
     return kept
 
 
-def normalize_gzh(raw):
+def normalize_aihot(raw):
     title = compact_text(raw.get("title"))
     if not title:
         return None
-    summary = compact_text(raw.get("summary") or raw.get("content") or raw.get("memo"))
-    url = compact_text(raw.get("workUrl") or raw.get("url") or raw.get("sourceUrl"))
+    url = compact_text(raw.get("url") or raw.get("permalink"))
     return {
-        "channel": "公众号",
-        "id": compact_text(raw.get("photoId") or raw.get("workUuid") or raw.get("id") or url or title),
+        "channel": "AI资讯",
+        "id": compact_text(raw.get("id") or url or title),
         "title": title,
-        "summary": summary,
-        "author": compact_text(raw.get("userName") or raw.get("author") or raw.get("accountName")),
-        "category": compact_text(raw.get("type") or raw.get("topic") or raw.get("accountType") or "未分类"),
+        "summary": compact_text(raw.get("summary")),
+        "author": compact_text(raw.get("source") or "AIHot"),
+        "category": compact_text(raw.get("category") or "未分类"),
         "url": url,
-        "readCount": int_value(raw.get("readCount")),
-        "likeCount": int_value(raw.get("likeCount")),
-        "commentCount": int_value(raw.get("commentCount")),
-        "shareCount": int_value(raw.get("shareCount")),
-        "publishTime": source_publish_time(raw),
+        "readCount": 0,
+        "likeCount": 0,
+        "commentCount": 0,
+        "shareCount": 0,
+        "score": int_value(raw.get("score")),
+        "publishTime": compact_text(raw.get("publishedAt")),
     }
 
 
@@ -384,22 +476,10 @@ def load_ai_items():
     next_day = (digest_day() + timedelta(days=1)).strftime("%Y-%m-%d")
     items = []
 
-    for keyword in AI_GZH_KEYWORDS[:3]:
-        payload = {
-            "_channel": "gzh",
-            "_url": GZH_AI_URL,
-            "keyword": keyword,
-            "pageNum": 1,
-            "pageSize": AI_GZH_PAGE_SIZE,
-            "source": "AI公众号信息源-Codex",
-        }
-        if AI_GZH_USE_DATE_RANGE:
-            payload["startTime"] = day
-            payload["endTime"] = next_day
-        for raw in fetch_redfox_list(GZH_AI_URL, payload):
-            item = normalize_gzh(raw)
-            if item:
-                items.append(item)
+    for raw in fetch_aihot_items():
+        item = normalize_aihot(raw)
+        if item:
+            items.append(item)
 
     xhs_payload = {
         "_channel": "xhs",
@@ -436,8 +516,8 @@ def load_ai_items():
 
 
 def item_score(item):
-    if item["channel"] == "公众号":
-        return item["readCount"] + item["likeCount"] * 20 + item["commentCount"] * 50
+    if item["channel"] == "AI资讯":
+        return item.get("score", 0) * 100
     return item["likeCount"] * 20 + item["shareCount"] * 30 + item["commentCount"] * 40
 
 
@@ -473,6 +553,7 @@ def dedup_terms(value):
         "用户",
         "小红书",
         "公众号",
+        "ai资讯",
     }
     return terms - stopwords
 
@@ -505,6 +586,8 @@ def prune_ai_history(history):
     cutoff = digest_day().date() - timedelta(days=max(1, AI_DEDUP_LOOKBACK_DAYS))
     pruned = []
     for record in history:
+        if record.get("version") != AI_HISTORY_VERSION:
+            continue
         try:
             record_date = datetime.strptime(record.get("date", ""), "%Y-%m-%d").date()
         except (TypeError, ValueError):
@@ -625,6 +708,7 @@ def record_ai_history(items, digest):
     history.append(
         {
             "date": digest_day().strftime("%Y-%m-%d"),
+            "version": AI_HISTORY_VERSION,
             "items": [item_identity(item) for item in items[:AI_INPUT_LIMIT]],
             "highlights": highlights[:24],
         }
@@ -718,7 +802,7 @@ def item_for_llm(item):
         "likes": item["likeCount"],
         "comments": item["commentCount"],
         "shares": item["shareCount"],
-        "publish_time": item["publishTime"],
+        "publish_time": source_time_shanghai(item["publishTime"]),
     }
 
 
@@ -729,7 +813,7 @@ def balanced_items(items, per_channel_limit):
     for channel in by_channel:
         by_channel[channel].sort(key=item_score, reverse=True)
     result = []
-    channels = ["公众号", "小红书"]
+    channels = ["AI资讯", "小红书"]
     for index in range(per_channel_limit):
         for channel in channels:
             bucket = by_channel.get(channel) or []
@@ -751,7 +835,7 @@ def fallback_digest(items):
     if not topics:
         topics = [{"topic": "AI热点", "summary": "；".join(item["title"] for item in items[:8])}]
     return {
-        "overview": f"昨日 AI 信息源共收集 {len(items)} 条内容，来源包括{channel_text or '公众号和小红书'}。",
+        "overview": f"昨日 AI 信息源共收集 {len(items)} 条内容，来源包括{channel_text or 'AI资讯和小红书'}。",
         "topics": topics[:AI_TOPIC_LIMIT],
         "signals": [],
     }
@@ -775,13 +859,13 @@ def build_llm_digest(items):
     if cached:
         return cached
     prompt = (
-        "请根据 AI 公众号和 AI 小红书两个信息源，生成一份 AI 领域信息日报。请先分类聚合，再总结，不要逐条流水账。\n"
+        "请根据 AIHot 精选资讯和 AI 小红书两个信息源，生成一份 AI 领域信息日报。请先分类聚合，再总结，不要逐条流水账。\n"
         "只输出 JSON：{\"overview\":\"...\",\"topics\":[{\"topic\":\"...\",\"summary\":\"...\"}],\"signals\":[\"...\"]}。\n"
         "要求：\n"
-        "1. overview 用 2-3 句概括昨日 AI 信息主线，说明公众号偏深度/产业，小红书偏实操/消费/创作者反馈时的差异。\n"
+        "1. 本日报日期是输入 JSON 的 date。overview 用 2-3 句概括该日期的 AI 信息主线，不要把 UTC 日期或文章正文中提到的其他日期误写成日报日期；说明 AIHot 资讯偏官方发布、产业、产品和研究，小红书偏实操、消费和创作者反馈时的差异。\n"
         "2. topics 聚合 5-8 个主题，每条 180-320 字，信息密度要高。主题优先关注：大模型与产品、Agent/RAG/开发工具、AI 应用落地、AI 创作与视频、算力芯片与基础设施、商业化与投融资、教程方法论。\n"
-        "3. 每个主题要合并两个渠道的信息，不要在主题标题里写“公众号”“小红书”等来源名；来源差异放在正文里自然说明。\n"
-        "4. 小红书内容不要当成行业事实，应表达为用户体验、创作者反馈或使用场景；公众号内容可作为行业资讯和深度文章线索。\n"
+        "3. 每个主题要合并两个渠道的信息，不要在主题标题里写“AIHot”“小红书”等来源名；来源差异放在正文里自然说明。\n"
+        "4. 小红书内容不要当成行业事实，应表达为用户体验、创作者反馈或使用场景；AIHot 内容可作为行业资讯、官方发布和研究线索。\n"
         "5. signals 输出 3-5 条今日值得关注的信号，短句即可。\n"
         "6. recent_published_highlights 是最近几天已经写进日报的重点，请避免重复这些旧内容；只有输入里出现了明确的新进展、新数据、新产品或新观点时才可再次提及，并要突出新增信息。\n"
         "7. 不要编造输入以外的信息，不要写投资建议。\n"

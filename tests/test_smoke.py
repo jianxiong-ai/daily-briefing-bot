@@ -37,6 +37,10 @@ class SmokeTests(unittest.TestCase):
         self.assertGreaterEqual(len(paragraphs), 2)
         self.assertTrue(paragraphs[0][-1][0].endswith("。"))
 
+    def test_daily_image_normalizes_latin_diacritics(self):
+        daily_image = load_module("daily_image_latin", "work/daily_image.py")
+        self.assertEqual(daily_image.sanitize_display_text("Jalapeño café"), "Jalapeno cafe")
+
     def test_report_modules_import_without_credentials(self):
         modules = {
             "ai_daily": "work/ai_daily/ai_daily.py",

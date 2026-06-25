@@ -20,7 +20,7 @@ python3 -m daily_briefing.cli run <report-name> \
 
 | Report | CLI name | Script | Main inputs | Typical output |
 | --- | --- | --- | --- | --- |
-| AI Industry Daily | `ai` | `work/ai_daily/ai_daily.py` | RedFox AI public account feed, RedFox AI Xiaohongshu feed, LLM | AI topic clusters and source highlights |
+| AI Industry Daily | `ai` | `work/ai_daily/ai_daily.py` | AIHot selected feed, RedFox AI Xiaohongshu feed, LLM | AI topic clusters and source highlights |
 | CCTV Morning News Daily | `cctv` | `work/cctv_daily/cctv_daily.py` | CCTV program page, article pages, LLM | Morning news overview, key stories, section summaries |
 | Douyin Hot Works Daily | `douyin` | `work/douyin_daily/douyin_daily.py` | RedFox Douyin hot works feed, LLM | Hot-topic clusters from daily viral videos |
 | WeChat Official Account Daily | `wechat` | `work/wechat_daily/wechat_daily.py` | RedFox public account APIs, configured followed accounts, LLM | Hot public-account articles and followed-account summaries |

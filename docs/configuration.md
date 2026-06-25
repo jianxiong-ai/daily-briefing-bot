@@ -32,8 +32,8 @@ Do not commit real `.env` files. Use files under `examples/env/` as templates.
 
 ## AI Daily Deduplication
 
-AI daily keeps a small local history file so repeated topics from RedFox-backed
-feeds do not appear day after day. By default it looks back seven days and only
+AI daily keeps a small local history file so repeated topics from AIHot and the
+RedFox Xiaohongshu feed do not appear day after day. By default it looks back seven days and only
 records reports that were actually pushed.
 
 | Variable | Purpose |
@@ -41,14 +41,17 @@ records reports that were actually pushed.
 | `AI_DEDUP_ENABLED` | `1` enables cross-day deduplication |
 | `AI_DEDUP_LOOKBACK_DAYS` | Number of previous days to compare against |
 | `AI_HISTORY_FILE` | Local JSON history file path |
+| `AI_HISTORY_VERSION` | Deduplication namespace; bump when the primary source changes |
 | `AI_XHS_USE_DATE_RANGE` | `1` requests the exact digest-day window from the Xiaohongshu feed |
-| `AI_GZH_MAX_AGE_DAYS` | Maximum age for items from the undated WeChat hot-feed pool |
+| `AIHOT_ITEMS_URL` | AIHot public selected-items endpoint |
+| `AIHOT_PAGE_SIZE` | AIHot items requested per page |
+| `AIHOT_MAX_PAGES` | Maximum cursor pages fetched per report |
+| `AIHOT_CACHE_FILE` | Local AIHot raw-response cache |
 
-The RedFox AI feeds have different semantics: the Xiaohongshu endpoint supports
-`startTime` and `endTime`, while the WeChat endpoint returns a ranked hot-content
-pool. The report therefore applies exact-day filtering to Xiaohongshu and a
-freshness window plus history deduplication to WeChat. If no fresh items remain,
-the formal job fails and sends an alert instead of delivering an empty report.
+AIHot provides the primary selected news, product, model, research, and industry
+feed. RedFox is used only for the Xiaohongshu AI supplement. Both sources are
+filtered to the Shanghai digest date. If no fresh items remain, the formal job
+fails and sends an alert instead of delivering an empty report.
 
 ## Report-Specific Env Files
 

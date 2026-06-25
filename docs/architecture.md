@@ -55,7 +55,7 @@ small shared core for runtime helpers and image rendering.
 - `work/cctv_daily`: CCTV `朝闻天下` digest.
 - `work/wechat_daily`: WeChat official account hot and followed-author digest.
 - `work/douyin_daily`: Douyin hot works digest.
-- `work/ai_daily`: AI-industry digest from RedFox-backed feeds.
+- `work/ai_daily`: AI-industry digest from AIHot selected items and a RedFox Xiaohongshu supplement.
 
 ## Current Refactor Opportunities
 

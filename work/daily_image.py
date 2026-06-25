@@ -6,6 +6,7 @@ import re
 import sys
 import tempfile
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 import uuid
@@ -93,7 +94,17 @@ def sanitize_display_text(value):
     value = value.replace("大户助理-囚", "大户助理-可")
     value = re.sub(r"[\u200b-\u200f\u202a-\u202e\ufe0e\ufe0f]", "", value)
     value = re.sub(r"[\ue000-\uf8ff]", "", value)
-    return value
+    normalized = []
+    for char in value:
+        if "LATIN" not in unicodedata.name(char, ""):
+            normalized.append(char)
+            continue
+        normalized.extend(
+            item
+            for item in unicodedata.normalize("NFKD", char)
+            if not unicodedata.combining(item)
+        )
+    return "".join(normalized)
 
 
 def strip_markdown(value):
