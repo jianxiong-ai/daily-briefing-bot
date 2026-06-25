@@ -113,6 +113,32 @@ class AIDailyDateTests(unittest.TestCase):
             pruned = ai_daily.prune_ai_history(records)
         self.assertEqual([record["items"][0]["title"] for record in pruned], ["current"])
 
+    def test_removes_source_availability_commentary(self):
+        text = (
+            "大模型产品继续升级，Agent能力进入办公场景。"
+            "缺少小红书渠道的实操与消费反馈，日报主要基于AIHot信息源。"
+            "视频生成模型在效率方面取得新进展。"
+        )
+        self.assertEqual(
+            ai_daily.remove_source_meta_commentary(text),
+            "大模型产品继续升级，Agent能力进入办公场景。视频生成模型在效率方面取得新进展。",
+        )
+
+    def test_clean_digest_drops_empty_meta_topic(self):
+        cleaned = ai_daily.clean_digest_content(
+            {
+                "overview": "日报主要基于AIHot信息源。",
+                "topics": [
+                    {"topic": "渠道说明", "summary": "小红书今日无相关内容。"},
+                    {"topic": "模型进展", "summary": "新模型提升了工具调用能力。"},
+                ],
+                "signals": ["数据源样本不足。", "Agent工具链继续完善。"],
+            }
+        )
+        self.assertEqual(cleaned["overview"], "")
+        self.assertEqual(cleaned["topics"], [{"topic": "模型进展", "summary": "新模型提升了工具调用能力。"}])
+        self.assertEqual(cleaned["signals"], ["Agent工具链继续完善。"])
+
 
 if __name__ == "__main__":
     unittest.main()

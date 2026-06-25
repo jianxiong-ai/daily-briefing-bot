@@ -118,7 +118,7 @@ LLM_MAX_CONCURRENT_REQUESTS = int(os.environ.get("LLM_MAX_CONCURRENT_REQUESTS", 
 LLM_CACHE_ENABLED = os.environ.get("LLM_CACHE_ENABLED", "1").strip() != "0"
 LLM_CACHE_TTL_SECONDS = int(os.environ.get("LLM_CACHE_TTL_SECONDS", "21600"))
 LLM_CACHE_FILE = os.environ.get("AI_LLM_CACHE_FILE", os.path.join(os.path.dirname(ENV_PATH), "llm_summary_cache.jsonl"))
-LLM_PROMPT_VERSION = os.environ.get("AI_LLM_PROMPT_VERSION", "ai-v3")
+LLM_PROMPT_VERSION = os.environ.get("AI_LLM_PROMPT_VERSION", "ai-v4")
 
 APP_DATA_DIR = os.path.dirname(ENV_PATH)
 SH_TZ = timezone(timedelta(hours=8))
@@ -822,11 +822,53 @@ def balanced_items(items, per_channel_limit):
     return result
 
 
+SOURCE_META_PATTERNS = (
+    r"缺少.{0,12}(小红书|AIHot|渠道|来源).{0,20}(内容|反馈|数据|样本)?",
+    r"(小红书|AIHot).{0,12}(无|暂无|未提供|未返回|没有).{0,16}(内容|反馈|数据|样本)",
+    r"日报.{0,12}(主要|仅|基本).{0,8}(基于|来自|依赖)",
+    r"(信息源|数据源|渠道|样本).{0,12}(缺失|缺少|不足|有限|为零|未覆盖)",
+    r"(本次|今日|昨日).{0,8}(未抓取|未获取|未收集).{0,16}(内容|数据|信息)",
+)
+
+
+def remove_source_meta_commentary(value):
+    text = compact_text(value)
+    if not text:
+        return ""
+    sentences = re.split(r"(?<=[。！？；!?])", text)
+    kept = [
+        sentence.strip()
+        for sentence in sentences
+        if sentence.strip()
+        and not any(re.search(pattern, sentence, re.I) for pattern in SOURCE_META_PATTERNS)
+    ]
+    return "".join(kept).strip()
+
+
+def clean_digest_content(digest):
+    cleaned_topics = []
+    for topic in digest.get("topics") or []:
+        if not isinstance(topic, dict):
+            continue
+        topic_name = compact_text(topic.get("topic"))
+        summary = remove_source_meta_commentary(topic.get("summary"))
+        if topic_name and summary:
+            cleaned_topics.append({"topic": topic_name, "summary": summary})
+    return {
+        "overview": remove_source_meta_commentary(digest.get("overview")),
+        "topics": cleaned_topics,
+        "signals": [
+            text
+            for text in (
+                remove_source_meta_commentary(item)
+                for item in digest.get("signals") or []
+            )
+            if text
+        ],
+    }
+
+
 def fallback_digest(items):
-    channels = {}
-    for item in items:
-        channels[item["channel"]] = channels.get(item["channel"], 0) + 1
-    channel_text = "、".join(f"{name}{count}条" for name, count in channels.items())
     topics = []
     for name in ("模型与产品", "Agent 与应用", "AI 创作", "算力与产业", "投融资与商业化", "教程与方法"):
         matches = [item for item in items if any(word in f"{item['title']} {item['summary']}" for word in name.split(" 与 "))]
@@ -835,7 +877,9 @@ def fallback_digest(items):
     if not topics:
         topics = [{"topic": "AI热点", "summary": "；".join(item["title"] for item in items[:8])}]
     return {
-        "overview": f"昨日 AI 信息源共收集 {len(items)} 条内容，来源包括{channel_text or 'AI资讯和小红书'}。",
+        "overview": "昨日 AI 动态聚焦于"
+        + "、".join(item["title"] for item in items[:4])
+        + "等事件与进展。",
         "topics": topics[:AI_TOPIC_LIMIT],
         "signals": [],
     }
@@ -862,10 +906,10 @@ def build_llm_digest(items):
         "请根据 AIHot 精选资讯和 AI 小红书两个信息源，生成一份 AI 领域信息日报。请先分类聚合，再总结，不要逐条流水账。\n"
         "只输出 JSON：{\"overview\":\"...\",\"topics\":[{\"topic\":\"...\",\"summary\":\"...\"}],\"signals\":[\"...\"]}。\n"
         "要求：\n"
-        "1. 本日报日期是输入 JSON 的 date。overview 用 2-3 句概括该日期的 AI 信息主线，不要把 UTC 日期或文章正文中提到的其他日期误写成日报日期；说明 AIHot 资讯偏官方发布、产业、产品和研究，小红书偏实操、消费和创作者反馈时的差异。\n"
+        "1. 本日报日期是输入 JSON 的 date。overview 用 2-3 句概括该日期的 AI 信息主线，不要把 UTC 日期或文章正文中提到的其他日期误写成日报日期。\n"
         "2. topics 聚合 5-8 个主题，每条 180-320 字，信息密度要高。主题优先关注：大模型与产品、Agent/RAG/开发工具、AI 应用落地、AI 创作与视频、算力芯片与基础设施、商业化与投融资、教程方法论。\n"
-        "3. 每个主题要合并两个渠道的信息，不要在主题标题里写“AIHot”“小红书”等来源名；来源差异放在正文里自然说明。\n"
-        "4. 小红书内容不要当成行业事实，应表达为用户体验、创作者反馈或使用场景；AIHot 内容可作为行业资讯、官方发布和研究线索。\n"
+        "3. 只聚焦输入内容本身，包括事件、明确对象、产品能力、关键数据、研究结论、产业影响和用户反馈。不要讨论信息源、数据源、渠道构成、样本数量、抓取状态、内容缺失或日报生成过程。\n"
+        "4. 不要写“缺少小红书内容”“主要基于AIHot”“某渠道没有反馈”等编辑说明。若某一渠道没有内容，直接忽略，不要在任何字段中提及。小红书内容若存在，应表达为用户体验、创作者反馈或使用场景，不要当成行业事实。\n"
         "5. signals 输出 3-5 条今日值得关注的信号，短句即可。\n"
         "6. recent_published_highlights 是最近几天已经写进日报的重点，请避免重复这些旧内容；只有输入里出现了明确的新进展、新数据、新产品或新观点时才可再次提及，并要突出新增信息。\n"
         "7. 不要编造输入以外的信息，不要写投资建议。\n"
@@ -876,11 +920,11 @@ def build_llm_digest(items):
         prompt,
         "{\"overview\":\"...\",\"topics\":[{\"topic\":\"...\",\"summary\":\"...\"}],\"signals\":[\"...\"]}",
     )
-    result = {
+    result = clean_digest_content({
         "overview": parsed.get("overview") if isinstance(parsed.get("overview"), str) else "",
         "topics": parsed.get("topics") if isinstance(parsed.get("topics"), list) else [],
         "signals": parsed.get("signals") if isinstance(parsed.get("signals"), list) else [],
-    }
+    })
     set_cached_summary("ai_daily_digest", payload, result)
     return result
 
@@ -899,6 +943,7 @@ def build_daily_payload(items):
     except Exception as exc:
         log_progress(f"ai llm summary failed, fallback to rule summary: {exc}")
         digest = fallback_digest(items)
+    digest = clean_digest_content(digest)
 
     overview_lines = ["**昨日概览**", markdown_escape(digest.get("overview") or "暂无概览。")]
 
