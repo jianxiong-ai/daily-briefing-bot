@@ -23,6 +23,7 @@ PANEL_PAD_X = 42
 PANEL_PAD_Y = 34
 LINE_GAP = 18
 PARAGRAPH_GAP = 26
+BLOCK_TITLE_GAP = 24
 PARAGRAPH_MIN_CHARS = 72
 PARAGRAPH_SOFT_MAX_CHARS = 132
 
@@ -356,7 +357,7 @@ def measure_block(draw, block, panel_width):
         title_lines = wrap_spans(draw, [(title, BOLD_FONT, BLUE)], content_width)
         for wrapped in title_lines:
             height += line_height(wrapped) + 8
-        height += 10
+        height += BLOCK_TITLE_GAP
     measured, lines_height = measure_rich_lines(draw, block.get("lines") or [], content_width)
     height += lines_height
     return {"block": block, "title_lines": title_lines, "lines": measured, "height": max(112, height)}
@@ -509,7 +510,7 @@ def render_daily_image(title, sections, output_path=None, width=DEFAULT_WIDTH):
                         draw.text((x, text_y), text, font=font, fill=color)
                         x += draw.textlength(text, font=font)
                     text_y += line_height(wrapped) + 8
-                text_y += 10
+                text_y += BLOCK_TITLE_GAP
             for line_group in measured["lines"]:
                 for wrapped in line_group["wrapped"]:
                     x = text_x
