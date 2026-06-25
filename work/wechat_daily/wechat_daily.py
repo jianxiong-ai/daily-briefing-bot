@@ -80,10 +80,6 @@ WECHAT_FOLLOW_AUTHOR_LIMIT = int(os.environ.get("WECHAT_FOLLOW_AUTHOR_LIMIT", "2
 WECHAT_FOLLOW_FETCH_WORKERS = int(os.environ.get("WECHAT_FOLLOW_FETCH_WORKERS", "4"))
 WECHAT_FOLLOW_MAX_PAGES = int(os.environ.get("WECHAT_FOLLOW_MAX_PAGES", "2"))
 WECHAT_MIN_READS = int(os.environ.get("WECHAT_MIN_READS", "5000"))
-WECHAT_MIN_HOT_ARTICLES = int(os.environ.get("WECHAT_MIN_HOT_ARTICLES", "6"))
-WECHAT_REQUIRE_FOLLOW_CONTENT = os.environ.get("WECHAT_REQUIRE_FOLLOW_CONTENT", "1").strip() != "0"
-WECHAT_SOURCE_RETRY_ATTEMPTS = int(os.environ.get("WECHAT_SOURCE_RETRY_ATTEMPTS", "3"))
-WECHAT_SOURCE_RETRY_DELAY_SECONDS = int(os.environ.get("WECHAT_SOURCE_RETRY_DELAY_SECONDS", "600"))
 WECHAT_DAILY_TITLE = os.environ.get("WECHAT_DAILY_TITLE", "昨日公众号信息汇总").strip()
 WECHAT_ORIGINAL_FETCH_ENABLED = os.environ.get("WECHAT_ORIGINAL_FETCH_ENABLED", "1").strip() != "0"
 WECHAT_ORIGINAL_FETCH_LIMIT = int(os.environ.get("WECHAT_ORIGINAL_FETCH_LIMIT", "3"))
@@ -552,60 +548,6 @@ def set_redfox_raw_cache(payload, data):
             "data": data,
         }
         save_redfox_raw_cache(cache)
-
-
-def clear_digest_redfox_cache():
-    target = digest_day().strftime("%Y-%m-%d")
-    with REDFOX_CACHE_LOCK:
-        cache = load_redfox_raw_cache()
-        kept = {
-            key: record
-            for key, record in cache.items()
-            if compact_text(record.get("date"))[:10] != target
-        }
-        removed = len(cache) - len(kept)
-        if removed:
-            save_redfox_raw_cache(kept)
-            log_progress(f"cleared incomplete RedFox cache date={target} records={removed}")
-
-
-def load_complete_daily_data(sleep_fn=time.sleep):
-    attempts = max(1, WECHAT_SOURCE_RETRY_ATTEMPTS)
-    last_reason = ""
-    for attempt in range(1, attempts + 1):
-        if attempt > 1:
-            clear_digest_redfox_cache()
-
-        log_progress(f"source completeness attempt={attempt}/{attempts}: loading hot articles")
-        articles = load_hot_articles()
-        if len(articles) < max(1, WECHAT_MIN_HOT_ARTICLES):
-            last_reason = (
-                f"hot articles incomplete: {len(articles)} "
-                f"< {max(1, WECHAT_MIN_HOT_ARTICLES)}"
-            )
-        else:
-            log_progress("source completeness: loading followed author articles")
-            follow_articles = fetch_follow_author_articles(
-                skip_authors=hot_author_skip_set(articles)
-            )
-            if (
-                WECHAT_FOLLOW_AUTHORS
-                and WECHAT_REQUIRE_FOLLOW_CONTENT
-                and not follow_articles
-            ):
-                last_reason = "all followed authors returned zero articles"
-            else:
-                return articles, follow_articles
-
-        log_progress(f"source incomplete attempt={attempt}/{attempts}: {last_reason}")
-        if attempt < attempts:
-            delay = max(0, WECHAT_SOURCE_RETRY_DELAY_SECONDS) if is_formal_run() else 0
-            log_progress(f"waiting for RedFox source update seconds={delay}")
-            sleep_fn(delay)
-
-    raise RuntimeError(
-        f"WeChat daily source remained incomplete after {attempts} attempts: {last_reason}"
-    )
 
 
 def int_value(value):
@@ -1528,11 +1470,12 @@ def send_notifications(articles, follow_articles):
 
 
 def main():
-    log_progress("start loading complete wechat daily data")
-    articles, follow_articles = load_complete_daily_data()
-    log_progress(
-        f"wechat data complete hot_count={len(articles)} follow_count={len(follow_articles)}"
-    )
+    log_progress("start loading wechat hot articles")
+    articles = load_hot_articles()
+    log_progress(f"wechat hot loaded count={len(articles)}")
+    log_progress("start loading followed author articles")
+    follow_articles = fetch_follow_author_articles(skip_authors=hot_author_skip_set(articles))
+    log_progress(f"wechat follow loaded count={len(follow_articles)}")
     if RENDER_ONLY:
         if not render_daily_image:
             raise RuntimeError("daily image renderer unavailable")
