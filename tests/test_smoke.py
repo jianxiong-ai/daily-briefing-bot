@@ -55,6 +55,10 @@ class SmokeTests(unittest.TestCase):
                 module = load_module(name, path)
                 self.assertTrue(hasattr(module, "main"))
 
+    def test_wechat_followed_authors_are_sorted_by_latest_publish_time(self):
+        source = (ROOT / "work/wechat_daily/wechat_daily.py").read_text(encoding="utf-8")
+        self.assertIn('"sortType": "_2"', source)
+
     def test_launchd_templates_use_placeholders(self):
         for name in ("daily-report.plist.example", "interval-report.plist.example"):
             text = (ROOT / "deploy/launchd" / name).read_text(encoding="utf-8")

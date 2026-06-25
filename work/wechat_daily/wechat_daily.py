@@ -356,7 +356,7 @@ def fetch_follow_author_articles(skip_authors=None):
                 "account": author["account"],
                 "accountName": author.get("accountName", ""),
                 "offset": offset,
-                "sortType": "0",
+                "sortType": "_2",
                 "publishTimeStart": start,
                 "publishTimeEnd": end,
                 "_cache_url": REDFOX_WORK_LIST_URL,
