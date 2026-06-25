@@ -41,6 +41,14 @@ records reports that were actually pushed.
 | `AI_DEDUP_ENABLED` | `1` enables cross-day deduplication |
 | `AI_DEDUP_LOOKBACK_DAYS` | Number of previous days to compare against |
 | `AI_HISTORY_FILE` | Local JSON history file path |
+| `AI_XHS_USE_DATE_RANGE` | `1` requests the exact digest-day window from the Xiaohongshu feed |
+| `AI_GZH_MAX_AGE_DAYS` | Maximum age for items from the undated WeChat hot-feed pool |
+
+The RedFox AI feeds have different semantics: the Xiaohongshu endpoint supports
+`startTime` and `endTime`, while the WeChat endpoint returns a ranked hot-content
+pool. The report therefore applies exact-day filtering to Xiaohongshu and a
+freshness window plus history deduplication to WeChat. If no fresh items remain,
+the formal job fails and sends an alert instead of delivering an empty report.
 
 ## Report-Specific Env Files
 

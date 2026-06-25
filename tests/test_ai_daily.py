@@ -17,13 +17,25 @@ class AIDailyDateTests(unittest.TestCase):
 
     def test_filter_items_for_digest_date_drops_stale_and_missing_items(self):
         items = [
-            {"title": "new", "publishTime": "2026-06-23 09:00:00"},
-            {"title": "old", "publishTime": "2026-03-06 06:55:18"},
-            {"title": "unknown", "publishTime": ""},
+            {"channel": "小红书", "title": "new", "publishTime": "2026-06-23 09:00:00"},
+            {"channel": "小红书", "title": "old", "publishTime": "2026-03-06 06:55:18"},
+            {"channel": "小红书", "title": "unknown", "publishTime": ""},
         ]
         with patch.object(ai_daily, "DIGEST_DATE", "2026-06-23"):
             filtered = ai_daily.filter_items_for_digest_date(items)
         self.assertEqual([item["title"] for item in filtered], ["new"])
+
+    def test_filter_items_keeps_recent_gzh_pool_item(self):
+        items = [
+            {"channel": "公众号", "title": "recent", "publishTime": "2026-06-18 09:00:00"},
+            {"channel": "公众号", "title": "stale", "publishTime": "2026-05-01 09:00:00"},
+        ]
+        with (
+            patch.object(ai_daily, "DIGEST_DATE", "2026-06-23"),
+            patch.object(ai_daily, "AI_GZH_MAX_AGE_DAYS", 14),
+        ):
+            filtered = ai_daily.filter_items_for_digest_date(items)
+        self.assertEqual([item["title"] for item in filtered], ["recent"])
 
     def test_redfox_cache_rejects_record_from_another_digest_date(self):
         payload = {"_channel": "gzh", "keyword": "AI"}

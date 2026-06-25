@@ -73,7 +73,8 @@ AI_XHS_KEYWORD = os.environ.get("AI_XHS_KEYWORD", "AI").strip() or "AI"
 AI_GZH_PAGE_SIZE = int(os.environ.get("AI_GZH_PAGE_SIZE", "20"))
 AI_XHS_PAGE_SIZE = int(os.environ.get("AI_XHS_PAGE_SIZE", "50"))
 AI_GZH_USE_DATE_RANGE = os.environ.get("AI_GZH_USE_DATE_RANGE", "0").strip() == "1"
-AI_XHS_USE_DATE_RANGE = os.environ.get("AI_XHS_USE_DATE_RANGE", "0").strip() == "1"
+AI_XHS_USE_DATE_RANGE = os.environ.get("AI_XHS_USE_DATE_RANGE", "1").strip() != "0"
+AI_GZH_MAX_AGE_DAYS = int(os.environ.get("AI_GZH_MAX_AGE_DAYS", "14"))
 AI_INPUT_LIMIT = int(os.environ.get("AI_INPUT_LIMIT", "80"))
 AI_TOPIC_LIMIT = int(os.environ.get("AI_TOPIC_LIMIT", "8"))
 AI_DEDUP_ENABLED = os.environ.get("AI_DEDUP_ENABLED", "1").strip() != "0"
@@ -315,7 +316,12 @@ def filter_items_for_digest_date(items):
         if published is None:
             missing += 1
             continue
-        if published != expected:
+        if item.get("channel") == "小红书":
+            valid = published == expected
+        else:
+            age_days = (expected - published).days
+            valid = 0 <= age_days <= max(0, AI_GZH_MAX_AGE_DAYS)
+        if not valid:
             stale += 1
             continue
         kept.append(item)
@@ -933,6 +939,11 @@ def main():
     log_progress("start loading ai daily items")
     items = dedupe_recent_ai_items(load_ai_items())
     log_progress(f"ai items loaded count={len(items)}")
+    if not items:
+        raise RuntimeError(
+            "AI daily has no fresh items after source date and history filtering; "
+            "skip empty report and alert instead"
+        )
     if RENDER_ONLY:
         if not render_daily_image:
             raise RuntimeError("daily image renderer unavailable")
