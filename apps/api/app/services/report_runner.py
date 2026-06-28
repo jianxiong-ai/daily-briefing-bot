@@ -132,3 +132,53 @@ def run_subscription(subscription: dict, *, render_only: bool = False, digest_da
     message = f"exit={completed.returncode}\n{message}".strip()
     finish_run_log(run_id, "failed", message=message[-4000:], output_path=output_path)
     return {"id": run_id, "status": "failed", "message": message, "output_path": output_path}
+
+
+def run_hot_collector(subscription: dict) -> dict:
+    """Run a report script in hot-collect-only mode.
+
+    Used by the scheduler to periodically snapshot data (e.g. Weibo hot search)
+    that the daily report later aggregates. Successful runs are intentionally
+    not written to run_logs to avoid flooding the dashboard; only failures are.
+    """
+    settings = get_settings()
+    report_type = subscription["report_type"]
+    env_path, env_values = build_subscription_env(subscription)
+    cmd = [
+        sys.executable,
+        "-m",
+        "daily_briefing.cli",
+        "run",
+        report_type,
+        "--env",
+        str(env_path),
+        "--send-at",
+        "",
+    ]
+    env = os.environ.copy()
+    env.update(env_values)
+    env["COLLECT_HOT_ONLY"] = "1"
+    env["RENDER_ONLY"] = ""
+    env["PYTHONPATH"] = f"{settings.project_path}:{settings.project_path / 'apps/api'}:{env.get('PYTHONPATH', '')}"
+    try:
+        completed = subprocess.run(
+            cmd,
+            cwd=settings.project_path,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=10 * 60,
+        )
+    except Exception as exc:
+        run_id = create_run_log(subscription["id"], f"{report_type}:collector", "failed")
+        finish_run_log(run_id, "failed", message=str(exc))
+        return {"status": "failed", "message": str(exc)}
+
+    if completed.returncode == 0:
+        return {"status": "success", "message": completed.stdout.strip()[-2000:]}
+
+    message = "\n".join(part for part in (completed.stdout.strip(), completed.stderr.strip()) if part).strip()
+    message = f"exit={completed.returncode}\n{message}".strip()
+    run_id = create_run_log(subscription["id"], f"{report_type}:collector", "failed")
+    finish_run_log(run_id, "failed", message=message[-4000:])
+    return {"status": "failed", "message": message}

@@ -10,6 +10,9 @@ class ReportField(BaseModel):
     type: str
     placeholder: str = ""
     help: str = ""
+    required: bool = False
+    recommended: bool = False
+    group: str = ""
 
 
 class ReportOption(BaseModel):
@@ -17,6 +20,17 @@ class ReportOption(BaseModel):
     title: str
     default_env: str
     fields: List[ReportField]
+    window: Dict = Field(default_factory=dict)
+
+
+class ValidationIssue(BaseModel):
+    level: str
+    key: str
+    message: str
+
+
+class ValidationResult(BaseModel):
+    issues: List[ValidationIssue]
 
 
 class SubscriptionBase(BaseModel):
@@ -55,6 +69,7 @@ class SubscriptionOut(SubscriptionBase):
     last_run_at: Optional[datetime] = None
     last_status: str = ""
     last_message: str = ""
+    warnings: List[str] = Field(default_factory=list)
 
 
 class RunRequest(BaseModel):

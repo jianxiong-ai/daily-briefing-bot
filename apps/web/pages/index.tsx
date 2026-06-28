@@ -7,6 +7,18 @@ type ReportField = {
   type: string;
   placeholder: string;
   help?: string;
+  required?: boolean;
+  recommended?: boolean;
+  group?: string;
+};
+
+type ReportWindow = {
+  model?: string;
+  summary?: string;
+  recommended_start?: string;
+  recommended_end?: string;
+  needs_hot_collector?: boolean;
+  collector_interval_minutes?: number;
 };
 
 type ReportOption = {
@@ -14,6 +26,7 @@ type ReportOption = {
   title: string;
   default_env: string;
   fields: ReportField[];
+  window?: ReportWindow;
 };
 
 type Subscription = {
@@ -27,6 +40,7 @@ type Subscription = {
   last_run_at?: string | null;
   last_status?: string;
   last_message?: string;
+  warnings?: string[];
 };
 
 type RunLog = {
@@ -97,6 +111,17 @@ export default function Home() {
     [reports, form.report_type],
   );
 
+  const pushTimeOutOfRange = useMemo(() => {
+    const win = selectedReport?.window;
+    if (!win?.recommended_start || !win?.recommended_end || !form.push_time) return false;
+    const toMin = (value: string) => {
+      const [h, m] = value.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const current = toMin(form.push_time);
+    return current < toMin(win.recommended_start) || current > toMin(win.recommended_end);
+  }, [selectedReport, form.push_time]);
+
   async function load() {
     const [reportData, subscriptionData, runData, schedulerData] = await Promise.all([
       apiGet<ReportOption[]>('/api/reports'),
@@ -154,13 +179,12 @@ export default function Home() {
     setBusy(true);
     setMessage('');
     try {
-      if (editingId) {
-        await apiPut(`/api/subscriptions/${editingId}`, form);
-        setMessage('订阅已更新，后端定时任务已重新加载。');
-      } else {
-        await apiPost('/api/subscriptions', form);
-        setMessage('订阅已创建，后端定时任务已加载。');
-      }
+      const saved = editingId
+        ? await apiPut<Subscription>(`/api/subscriptions/${editingId}`, form)
+        : await apiPost<Subscription>('/api/subscriptions', form);
+      const base = editingId ? '订阅已更新，后端定时任务已重新加载。' : '订阅已创建，后端定时任务已加载。';
+      const warnings = saved.warnings || [];
+      setMessage(warnings.length ? `${base}\n注意：\n- ${warnings.join('\n- ')}` : base);
       reset();
       await load();
     } catch (error) {
@@ -239,6 +263,16 @@ export default function Home() {
               <input type="checkbox" checked={form.is_active} onChange={(event) => setForm({ ...form, is_active: event.target.checked })} />
             </label>
           </div>
+          {selectedReport?.window?.recommended_start && (
+            <p className={`hint ${pushTimeOutOfRange ? 'hint-warn' : ''}`}>
+              {selectedReport.window.summary} 建议推送时间 {selectedReport.window.recommended_start}–{selectedReport.window.recommended_end}。
+              {pushTimeOutOfRange && ' 当前时间不在推荐区间，可能导致数据为空或过时。'}
+              {selectedReport.window.needs_hot_collector &&
+                ' 该日报会自动注册热搜采集任务（每 ' +
+                  (selectedReport.window.collector_interval_minutes || 30) +
+                  ' 分钟一次）。'}
+            </p>
+          )}
 
           <label>
             飞书 Webhook
@@ -253,7 +287,14 @@ export default function Home() {
             <h3>凭证与关注配置</h3>
             {selectedReport?.fields.map((field) => (
               <label key={field.key}>
-                {field.label}
+                <span className="field-label">
+                  {field.label}
+                  {field.required && <span className="field-required"> *必填</span>}
+                  {!field.required && field.recommended && <span className="field-optional"> 建议填写</span>}
+                  {!field.required && !field.recommended && field.group === 'follow' && (
+                    <span className="field-optional"> 选填</span>
+                  )}
+                </span>
                 {field.type === 'textarea' ? (
                   <textarea
                     value={form.config[field.key] || ''}

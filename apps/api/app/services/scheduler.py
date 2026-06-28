@@ -2,7 +2,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 
 from app.config import get_settings
-from app.services.report_runner import run_subscription
+from app.report_metadata import REPORT_WINDOWS
+from app.services.report_runner import run_hot_collector, run_subscription
 from app.store import get_subscription, list_subscriptions
 
 
@@ -12,6 +13,8 @@ scheduler = BackgroundScheduler(
     executors={"default": ThreadPoolExecutor(max_workers=3)},
 )
 
+_MANAGED_PREFIXES = ("subscription-", "collector-")
+
 
 def _job(subscription_id: int) -> None:
     subscription = get_subscription(subscription_id)
@@ -20,9 +23,16 @@ def _job(subscription_id: int) -> None:
     run_subscription(subscription, render_only=False)
 
 
+def _collector_job(subscription_id: int) -> None:
+    subscription = get_subscription(subscription_id)
+    if not subscription or not subscription["is_active"]:
+        return
+    run_hot_collector(subscription)
+
+
 def sync_jobs() -> None:
     for job in list(scheduler.get_jobs()):
-        if job.id.startswith("subscription-"):
+        if job.id.startswith(_MANAGED_PREFIXES):
             scheduler.remove_job(job.id)
     for subscription in list_subscriptions():
         if not subscription["is_active"]:
@@ -41,6 +51,22 @@ def sync_jobs() -> None:
             max_instances=1,
             misfire_grace_time=15 * 60,
         )
+
+        window = REPORT_WINDOWS.get(subscription["report_type"], {})
+        if window.get("needs_hot_collector"):
+            interval = max(5, int(window.get("collector_interval_minutes", 30)))
+            scheduler.add_job(
+                _collector_job,
+                "interval",
+                id=f"collector-{subscription['id']}",
+                name=f"{subscription['name']} 采集 ({subscription['report_type']})",
+                minutes=interval,
+                args=[subscription["id"]],
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+                misfire_grace_time=10 * 60,
+            )
 
 
 def start_scheduler() -> None:

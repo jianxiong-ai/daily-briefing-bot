@@ -88,6 +88,29 @@ textarea {
   border-radius: 12px;
   background: #eef6ff;
   color: #174a7c;
+  white-space: pre-line;
+}
+
+.hint-warn {
+  color: #ad6800;
+}
+
+.field-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.field-required {
+  color: #cf1322;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.field-optional {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .workspace-grid {
