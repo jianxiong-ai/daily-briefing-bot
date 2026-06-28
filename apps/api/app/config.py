@@ -9,7 +9,10 @@ class Settings:
         self.database_path = os.environ.get("DATABASE_PATH", "data/subscriptions/subscriptions.sqlite3")
         self.subscription_env_dir = os.environ.get("SUBSCRIPTION_ENV_DIR", "data/subscriptions/env")
         self.subscription_output_dir = os.environ.get("SUBSCRIPTION_OUTPUT_DIR", "data/subscriptions/outputs")
-        self.api_cors_origins = os.environ.get("API_CORS_ORIGINS", "http://localhost:3000")
+        self.api_cors_origins = os.environ.get(
+            "API_CORS_ORIGINS",
+            "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3010,http://127.0.0.1:3010",
+        )
         self.scheduler_enabled = os.environ.get("SCHEDULER_ENABLED", "1").strip().lower() not in {"0", "false", "no"}
         self.scheduler_timezone = os.environ.get("SCHEDULER_TIMEZONE", "Asia/Shanghai")
         self.project_dir = os.environ.get("PROJECT_DIR", str(Path(__file__).resolve().parents[3]))

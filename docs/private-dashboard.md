@@ -55,8 +55,12 @@ from your devices before building the web image, for example:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL="http://your-mac.tailnet-name.ts.net:8000"
-API_CORS_ORIGINS="http://your-mac.tailnet-name.ts.net:3000,http://localhost:3000"
+API_CORS_ORIGINS="http://your-mac.tailnet-name.ts.net:3000,http://localhost:3000,http://127.0.0.1:3000"
 ```
+
+For local development, keep `localhost` and `127.0.0.1` origins in
+`API_CORS_ORIGINS`; otherwise opening the same page with the other hostname can
+look like an API connection failure in the browser.
 
 ## Data And Secrets
 
