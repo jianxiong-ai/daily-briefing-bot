@@ -1,0 +1,70 @@
+import os
+import tempfile
+import unittest
+from pathlib import Path
+
+
+class DashboardStoreTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name)
+        os.environ["PROJECT_DIR"] = str(Path(__file__).resolve().parents[3])
+        os.environ["DATABASE_PATH"] = str(root / "subscriptions.sqlite3")
+        os.environ["SUBSCRIPTION_ENV_DIR"] = str(root / "env")
+        os.environ["SUBSCRIPTION_OUTPUT_DIR"] = str(root / "outputs")
+
+        from app.config import get_settings
+
+        get_settings.cache_clear()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_create_and_update_subscription(self):
+        from app.store import create_subscription, init_db, list_subscriptions, update_subscription
+
+        init_db()
+        created = create_subscription(
+            {
+                "report_type": "wechat",
+                "name": "公众号日报",
+                "push_time": "07:55",
+                "push_targets": "primary",
+                "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/test",
+                "config": {"WECHAT_FOLLOW_AUTHORS": "财联社|cls-telegraph"},
+            }
+        )
+
+        self.assertEqual(created["report_type"], "wechat")
+        self.assertEqual(created["push_time"], "07:55")
+        self.assertEqual(len(list_subscriptions()), 1)
+
+        updated = update_subscription(created["id"], {"push_time": "08:05", "config": {"WECHAT_HOT_REPORT_LIMIT": "8"}})
+        self.assertEqual(updated["push_time"], "08:05")
+        self.assertEqual(updated["config"]["WECHAT_HOT_REPORT_LIMIT"], "8")
+
+    def test_generated_env_contains_subscription_values(self):
+        from app.services.report_runner import build_subscription_env
+        from app.store import create_subscription, init_db
+
+        init_db()
+        created = create_subscription(
+            {
+                "report_type": "weibo",
+                "name": "微博日报",
+                "push_time": "22:30",
+                "push_targets": "primary",
+                "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/test",
+                "config": {"WEIBO_BLOGGER_IDS": "1763864272,1906286443"},
+            }
+        )
+
+        env_path, values = build_subscription_env(created)
+        text = env_path.read_text(encoding="utf-8")
+        self.assertIn("WEIBO_BLOGGER_IDS", text)
+        self.assertEqual(values["FEISHU_WEBHOOK"], "https://open.feishu.cn/open-apis/bot/v2/hook/test")
+        self.assertEqual(values["SEND_AT_LOCAL"], "")
+
+
+if __name__ == "__main__":
+    unittest.main()

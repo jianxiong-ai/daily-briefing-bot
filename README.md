@@ -123,6 +123,9 @@ Run the same smoke checks used by CI:
 make check
 ```
 
+This private branch also includes a web dashboard and in-process scheduler for
+personal deployment. See [Private Subscription Dashboard](docs/private-dashboard.md).
+
 ## Development Status
 
 The current implementation is functional and ready for a `0.1.0` open-source

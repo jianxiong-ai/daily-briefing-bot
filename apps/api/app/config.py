@@ -1,0 +1,49 @@
+from functools import lru_cache
+import os
+from pathlib import Path
+from typing import List
+
+
+class Settings:
+    def __init__(self) -> None:
+        self.database_path = os.environ.get("DATABASE_PATH", "data/subscriptions/subscriptions.sqlite3")
+        self.subscription_env_dir = os.environ.get("SUBSCRIPTION_ENV_DIR", "data/subscriptions/env")
+        self.subscription_output_dir = os.environ.get("SUBSCRIPTION_OUTPUT_DIR", "data/subscriptions/outputs")
+        self.api_cors_origins = os.environ.get("API_CORS_ORIGINS", "http://localhost:3000")
+        self.scheduler_enabled = os.environ.get("SCHEDULER_ENABLED", "1").strip().lower() not in {"0", "false", "no"}
+        self.scheduler_timezone = os.environ.get("SCHEDULER_TIMEZONE", "Asia/Shanghai")
+        self.project_dir = os.environ.get("PROJECT_DIR", str(Path(__file__).resolve().parents[3]))
+
+    @property
+    def cors_origins(self) -> List[str]:
+        return [origin.strip() for origin in self.api_cors_origins.split(",") if origin.strip()]
+
+    @property
+    def project_path(self) -> Path:
+        return Path(self.project_dir).expanduser().resolve()
+
+    @property
+    def database_file(self) -> Path:
+        path = Path(self.database_path).expanduser()
+        if not path.is_absolute():
+            path = self.project_path / path
+        return path
+
+    @property
+    def env_dir(self) -> Path:
+        path = Path(self.subscription_env_dir).expanduser()
+        if not path.is_absolute():
+            path = self.project_path / path
+        return path
+
+    @property
+    def output_dir(self) -> Path:
+        path = Path(self.subscription_output_dir).expanduser()
+        if not path.is_absolute():
+            path = self.project_path / path
+        return path
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
