@@ -50,14 +50,19 @@ cp .env.private.example .env
 docker compose -f docker-compose.private.yml up --build
 ```
 
-For Tailscale access, run the API on `0.0.0.0` and either leave
-`NEXT_PUBLIC_API_BASE_URL` empty so the browser uses the same hostname with API
-port `8010`, or set it explicitly to the API URL reachable from your devices:
+The private compose file is intentionally mapped away from `astock-watchtower`:
+
+- Web: <http://localhost:3010>
+- API: <http://localhost:8010>
+
+For Tailscale access, leave `NEXT_PUBLIC_API_BASE_URL` empty. The browser will
+use the same hostname as the page and API port `8010`, for example
+`http://100.108.43.1:8010`.
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=""
-API_CORS_ORIGINS="http://your-mac.tailnet-name.ts.net:3000,http://localhost:3000,http://127.0.0.1:3000,http://100.108.43.1:3010"
-API_CORS_ORIGIN_REGEX="^http://(localhost|127\\.0\\.0\\.1|100\\.\\d+\\.\\d+\\.\\d+)(:3000|:3010)$"
+API_CORS_ORIGINS="http://localhost:3010,http://127.0.0.1:3010,http://100.108.43.1:3010"
+API_CORS_ORIGIN_REGEX="^http://(localhost|127\\.0\\.0\\.1|100\\.\\d+\\.\\d+\\.\\d+)(:3010)$"
 ```
 
 For local development, keep `localhost` and `127.0.0.1` origins in
