@@ -139,7 +139,7 @@ def main(argv=None) -> int:
         existing = api_get(args.api_base, "/api/subscriptions")
     except urllib.error.URLError as exc:
         print(f"error: cannot reach dashboard API at {args.api_base}: {exc}")
-        print("Make sure the docker stack is running (docker compose -f docker-compose.private.yml up -d).")
+        print("Make sure the docker stack is running (docker compose -f docker-compose.dashboard.yml up -d).")
         return 1
     existing_types = {item["report_type"] for item in existing}
 

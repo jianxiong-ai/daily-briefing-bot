@@ -6,9 +6,10 @@ and third-party data APIs, summarizes them with an LLM, renders mobile-friendly
 daily report images, and pushes the result to Feishu or WeCom robots.
 
 This repository started as a personal automation project and is being cleaned up
-into a reusable open-source tool. The current code is script-first and macOS
-friendly; the roadmap is to extract more shared libraries and add more portable
-deployment options.
+into a reusable open-source tool. It can be used as a CLI-first local automation
+project or as a self-hosted subscription dashboard with an in-process scheduler.
+
+![Subscription dashboard](docs/assets/dashboard-subscriptions.png)
 
 ## Features
 
@@ -25,6 +26,7 @@ deployment options.
 - Image report rendering for Feishu image messages, with text-card fallback.
 - Feishu and WeCom robot delivery.
 - macOS `launchd` examples for scheduled local automation.
+- Docker Compose subscription dashboard for self-hosted scheduling.
 - Render-only mode for local visual QA before sending messages.
 
 ## Project Layout
@@ -46,7 +48,11 @@ docs/
   deployment-launchd.md
   report-matrix.md
   running-reports.md
+  subscription-dashboard.md
   security.md
+apps/
+  api/              FastAPI subscription dashboard API
+  web/              Next.js subscription dashboard UI
 examples/
   env/
 deploy/
@@ -86,6 +92,33 @@ daily-briefing run wechat \
 When the image looks correct, configure push targets and run without
 `RENDER_ONLY=1`.
 
+## Subscription Dashboard
+
+The dashboard is the easiest way to run Daily Briefing Bot as a long-running
+self-hosted service. It lets you create report subscriptions, configure
+credentials and followed sources, set push times, run render-only tests, and
+send reports to the Feishu webhook attached to each subscription.
+
+```bash
+cp .env.dashboard.example .env
+docker compose -f docker-compose.dashboard.yml up --build -d
+```
+
+Default URLs:
+
+- Web: <http://localhost:3010>
+- API: <http://localhost:8010>
+
+For Tailscale access, keep `NEXT_PUBLIC_API_BASE_URL` empty and open the web
+port on your Tailscale IP, for example `http://100.x.y.z:3010`.
+
+See [Subscription Dashboard](docs/subscription-dashboard.md) for deployment,
+secret storage, and migration details.
+
+Example rendered report:
+
+![Rendered daily report](docs/assets/report-image-cctv.png)
+
 ## Configuration
 
 Configuration is environment-variable based. Real `.env` files, cookies, caches,
@@ -95,6 +128,7 @@ Start with:
 
 - [Configuration Guide](docs/configuration.md)
 - [Running Reports](docs/running-reports.md)
+- [Subscription Dashboard](docs/subscription-dashboard.md)
 - [Report Matrix](docs/report-matrix.md)
 - [Development Guide](docs/development.md)
 - [macOS launchd Deployment](docs/deployment-launchd.md)
@@ -121,10 +155,8 @@ Run the same smoke checks used by CI:
 
 ```bash
 make check
+make dashboard-check
 ```
-
-This private branch also includes a web dashboard and in-process scheduler for
-personal deployment. See [Private Subscription Dashboard](docs/private-dashboard.md).
 
 ## Development Status
 

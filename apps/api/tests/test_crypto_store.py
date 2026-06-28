@@ -40,8 +40,8 @@ class CryptoStoreTest(unittest.TestCase):
                 "push_time": "22:30",
                 "feishu_webhook": "https://open.feishu.cn/hook",
                 "config": {
-                    "DEEPSEEK_API_KEYS": "sk-super-secret",
-                    "WEIBO_COOKIE": "SUB=secret-cookie",
+                    "DEEPSEEK_API_KEYS": "unit-deepseek-secret",
+                    "WEIBO_COOKIE": "UNIT_SESSION=secret-cookie",
                     "WEIBO_BLOGGER_IDS": "1763864272",
                 },
             }
@@ -49,8 +49,8 @@ class CryptoStoreTest(unittest.TestCase):
 
         # Reading back through the store transparently decrypts.
         fetched = get_subscription(created["id"])
-        self.assertEqual(fetched["config"]["DEEPSEEK_API_KEYS"], "sk-super-secret")
-        self.assertEqual(fetched["config"]["WEIBO_COOKIE"], "SUB=secret-cookie")
+        self.assertEqual(fetched["config"]["DEEPSEEK_API_KEYS"], "unit-deepseek-secret")
+        self.assertEqual(fetched["config"]["WEIBO_COOKIE"], "UNIT_SESSION=secret-cookie")
         # Non-secret keys stay plaintext.
         self.assertEqual(fetched["config"]["WEIBO_BLOGGER_IDS"], "1763864272")
 
@@ -59,7 +59,7 @@ class CryptoStoreTest(unittest.TestCase):
         conn = sqlite3.connect(db_path)
         raw = conn.execute("SELECT config_json FROM subscriptions WHERE id = ?", (created["id"],)).fetchone()[0]
         conn.close()
-        self.assertNotIn("sk-super-secret", raw)
+        self.assertNotIn("unit-deepseek-secret", raw)
         self.assertNotIn("secret-cookie", raw)
         stored = json.loads(raw)
         self.assertTrue(stored["DEEPSEEK_API_KEYS"].startswith("enc:v1:"))

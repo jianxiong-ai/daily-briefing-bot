@@ -10,6 +10,8 @@ small shared core for runtime helpers and image rendering.
 ## Layers
 
 1. **Schedule Layer**
+   - The subscription dashboard can run schedules inside a long-running FastAPI
+     process with APScheduler.
    - macOS `launchd` can call `python3 -m daily_briefing.cli run <report>`.
    - The CLI sets report-specific env paths and common runtime flags.
    - Reports can still wait until `SEND_AT_LOCAL` before pushing.
@@ -51,6 +53,8 @@ small shared core for runtime helpers and image rendering.
 - `daily_briefing.redfox`: shared RedFox POST helper, public-payload filtering,
   stable raw-cache keys, and bounded JSON cache storage.
 - `work/daily_image.py`: shared image report renderer and Feishu image helpers.
+- `apps/api` and `apps/web`: optional self-hosted subscription dashboard for
+  configuring report schedules and per-subscription credentials.
 
 ## Report Modules
 

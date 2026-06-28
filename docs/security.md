@@ -42,8 +42,8 @@ Then point each script at the env file with `*_DAILY_ENV`.
 
 ## Dashboard Secrets at Rest
 
-The private dashboard stores per-subscription credentials (LLM keys, RedFox keys,
-cookies, etc.) encrypted at rest:
+The subscription dashboard stores per-subscription credentials (LLM keys, RedFox
+keys, cookies, etc.) encrypted at rest:
 
 - Secret-looking config values are encrypted before being written to the SQLite
   database and decrypted transparently when read back.
@@ -56,4 +56,3 @@ cookies, etc.) encrypted at rest:
 - Generated subscription env files never inherit secret-looking keys from the
   repo's `work/<report>/.env`; each subscription must provide its own credentials,
   so a developer's personal keys never bleed into a subscription.
-

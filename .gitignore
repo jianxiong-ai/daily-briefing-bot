@@ -2,7 +2,7 @@
 .env
 .env.*
 !.env.example
-!.env.private.example
+!.env.dashboard.example
 *.cookie
 *.cookies
 *cookie*
@@ -22,6 +22,11 @@ weibo_hot_history.jsonl
 *.jpg
 *.jpeg
 *.webp
+!docs/assets/
+!docs/assets/*.png
+!docs/assets/*.jpg
+!docs/assets/*.jpeg
+!docs/assets/*.webp
 
 # Python
 __pycache__/

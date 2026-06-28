@@ -78,7 +78,7 @@ class DashboardStoreTest(unittest.TestCase):
                 "push_time": "22:30",
                 "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/test",
                 "config": {
-                    "WEIBO_COOKIE": "XSRF-TOKEN=test; SUB=test-sub",
+                    "WEIBO_COOKIE": "UNIT_COOKIE=test; UNIT_SESSION=test-sub",
                     "WEIBO_BLOGGER_IDS": "1763864272",
                 },
             }
@@ -91,7 +91,7 @@ class DashboardStoreTest(unittest.TestCase):
         self.assertNotIn("WEIBO_COOKIE=", text)
         self.assertIn("WEIBO_COOKIE_FILE", text)
         self.assertTrue(cookie_path.exists())
-        self.assertEqual(cookie_path.read_text(encoding="utf-8").strip(), "XSRF-TOKEN=test; SUB=test-sub")
+        self.assertEqual(cookie_path.read_text(encoding="utf-8").strip(), "UNIT_COOKIE=test; UNIT_SESSION=test-sub")
 
     def test_generated_env_isolates_runtime_per_subscription(self):
         from app.services.report_runner import build_subscription_env
