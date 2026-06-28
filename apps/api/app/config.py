@@ -1,7 +1,7 @@
 from functools import lru_cache
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 
 class Settings:
@@ -11,7 +11,11 @@ class Settings:
         self.subscription_output_dir = os.environ.get("SUBSCRIPTION_OUTPUT_DIR", "data/subscriptions/outputs")
         self.api_cors_origins = os.environ.get(
             "API_CORS_ORIGINS",
-            "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3010,http://127.0.0.1:3010",
+            "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3010,http://127.0.0.1:3010,http://100.108.43.1:3010",
+        )
+        self.api_cors_origin_regex = os.environ.get(
+            "API_CORS_ORIGIN_REGEX",
+            r"^http://(localhost|127\.0\.0\.1|100\.\d+\.\d+\.\d+)(:3000|:3010)$",
         )
         self.scheduler_enabled = os.environ.get("SCHEDULER_ENABLED", "1").strip().lower() not in {"0", "false", "no"}
         self.scheduler_timezone = os.environ.get("SCHEDULER_TIMEZONE", "Asia/Shanghai")
@@ -20,6 +24,10 @@ class Settings:
     @property
     def cors_origins(self) -> List[str]:
         return [origin.strip() for origin in self.api_cors_origins.split(",") if origin.strip()]
+
+    @property
+    def cors_origin_regex(self) -> Optional[str]:
+        return self.api_cors_origin_regex or None
 
     @property
     def project_path(self) -> Path:

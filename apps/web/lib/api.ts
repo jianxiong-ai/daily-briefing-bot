@@ -1,4 +1,13 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+function resolveApiBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (configured) return configured;
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:8010`;
+  }
+  return 'http://localhost:8010';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;

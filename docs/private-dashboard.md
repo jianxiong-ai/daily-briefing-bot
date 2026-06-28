@@ -50,12 +50,14 @@ cp .env.private.example .env
 docker compose -f docker-compose.private.yml up --build
 ```
 
-For Tailscale access, set `NEXT_PUBLIC_API_BASE_URL` to the API URL reachable
-from your devices before building the web image, for example:
+For Tailscale access, run the API on `0.0.0.0` and either leave
+`NEXT_PUBLIC_API_BASE_URL` empty so the browser uses the same hostname with API
+port `8010`, or set it explicitly to the API URL reachable from your devices:
 
 ```env
-NEXT_PUBLIC_API_BASE_URL="http://your-mac.tailnet-name.ts.net:8000"
-API_CORS_ORIGINS="http://your-mac.tailnet-name.ts.net:3000,http://localhost:3000,http://127.0.0.1:3000"
+NEXT_PUBLIC_API_BASE_URL=""
+API_CORS_ORIGINS="http://your-mac.tailnet-name.ts.net:3000,http://localhost:3000,http://127.0.0.1:3000,http://100.108.43.1:3010"
+API_CORS_ORIGIN_REGEX="^http://(localhost|127\\.0\\.0\\.1|100\\.\\d+\\.\\d+\\.\\d+)(:3000|:3010)$"
 ```
 
 For local development, keep `localhost` and `127.0.0.1` origins in
