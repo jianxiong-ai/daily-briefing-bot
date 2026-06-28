@@ -301,6 +301,16 @@ textarea {
   color: var(--danger);
 }
 
+.subscription-card button.toggle-enable {
+  border-color: rgba(6, 118, 71, 0.35);
+  color: #067647;
+}
+
+.subscription-card button.toggle-pause {
+  border-color: rgba(181, 71, 8, 0.35);
+  color: #b54708;
+}
+
 button:disabled {
   opacity: 0.6;
   cursor: wait;

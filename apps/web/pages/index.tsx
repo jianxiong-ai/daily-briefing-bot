@@ -107,6 +107,7 @@ export default function Home() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [runningId, setRunningId] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
   const [formError, setFormError] = useState('');
 
   const selectedReport = useMemo(
@@ -256,6 +257,20 @@ export default function Home() {
       setFormError(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function toggleActive(item: Subscription) {
+    setTogglingId(item.id);
+    setMessage('');
+    try {
+      await apiPut<Subscription>(`/api/subscriptions/${item.id}`, { is_active: !item.is_active });
+      setMessage(item.is_active ? `「${reportTitle(item.report_type)}」已暂停。` : `「${reportTitle(item.report_type)}」已启用。`);
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -423,6 +438,14 @@ export default function Home() {
                   {item.last_status && <p className={`run-status ${item.last_status}`}>最近运行：{item.last_status}</p>}
                 </div>
                 <div className="card-actions">
+                  <button
+                    type="button"
+                    className={item.is_active ? 'toggle-pause' : 'toggle-enable'}
+                    onClick={() => toggleActive(item)}
+                    disabled={togglingId !== null}
+                  >
+                    {togglingId === item.id ? '处理中…' : item.is_active ? '暂停' : '启用'}
+                  </button>
                   <button type="button" onClick={() => runNow(item)} disabled={runningId !== null}>
                     {runningId === item.id ? '运行中…' : '渲染测试'}
                   </button>
