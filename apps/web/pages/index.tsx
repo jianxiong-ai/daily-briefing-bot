@@ -245,7 +245,7 @@ export default function Home() {
             <input
               value={form.feishu_webhook}
               onChange={(event) => setForm({ ...form, feishu_webhook: event.target.value })}
-              placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
+              placeholder="请输入"
             />
           </label>
 
