@@ -209,25 +209,32 @@ def finish_run_log(run_id: int, status: str, message: str = "", output_path: str
             )
 
 
+def _row_to_run_log(row: sqlite3.Row) -> Dict[str, Any]:
+    return {
+        "id": row["id"],
+        "subscription_id": row["subscription_id"],
+        "report_type": row["report_type"],
+        "status": row["status"],
+        "started_at": parse_dt(row["started_at"]),
+        "finished_at": parse_dt(row["finished_at"]),
+        "output_path": row["output_path"],
+        "message": row["message"],
+    }
+
+
+def get_run_log(run_id: int) -> Optional[Dict[str, Any]]:
+    with db() as conn:
+        row = conn.execute("SELECT * FROM run_logs WHERE id = ?", (run_id,)).fetchone()
+    return _row_to_run_log(row) if row else None
+
+
 def list_run_logs(limit: int = 50) -> list[Dict[str, Any]]:
     with db() as conn:
         rows = conn.execute(
             "SELECT * FROM run_logs ORDER BY id DESC LIMIT ?",
             (max(1, min(int(limit), 200)),),
         ).fetchall()
-    return [
-        {
-            "id": row["id"],
-            "subscription_id": row["subscription_id"],
-            "report_type": row["report_type"],
-            "status": row["status"],
-            "started_at": parse_dt(row["started_at"]),
-            "finished_at": parse_dt(row["finished_at"]),
-            "output_path": row["output_path"],
-            "message": row["message"],
-        }
-        for row in rows
-    ]
+    return [_row_to_run_log(row) for row in rows]
 
 
 def ensure_private_file(path: Path) -> None:

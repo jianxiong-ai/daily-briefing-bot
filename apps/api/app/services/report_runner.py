@@ -2,6 +2,7 @@ import os
 import shlex
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -10,6 +11,11 @@ from daily_briefing.reports import REPORTS
 
 from app.config import get_settings
 from app.store import create_run_log, finish_run_log
+
+
+# Manual "run now" requests execute here so the HTTP request returns immediately
+# instead of blocking the worker for the full subprocess duration.
+_RUN_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="manual-run")
 
 
 COMMON_KEYS = {
@@ -79,7 +85,13 @@ def build_subscription_env(subscription: dict) -> tuple[Path, dict]:
     return env_path, values
 
 
-def run_subscription(subscription: dict, *, render_only: bool = False, digest_date: str = "") -> dict:
+def run_subscription(
+    subscription: dict,
+    *,
+    render_only: bool = False,
+    digest_date: str = "",
+    run_id: int | None = None,
+) -> dict:
     settings = get_settings()
     report_type = subscription["report_type"]
     env_path, env_values = build_subscription_env(subscription)
@@ -106,7 +118,8 @@ def run_subscription(subscription: dict, *, render_only: bool = False, digest_da
         )
         cmd.extend(["--render-only", "--output", output_path])
 
-    run_id = create_run_log(subscription["id"], report_type, "running", output_path=output_path)
+    if run_id is None:
+        run_id = create_run_log(subscription["id"], report_type, "running", output_path=output_path)
     env = os.environ.copy()
     env.update(env_values)
     env["PYTHONPATH"] = f"{settings.project_path}:{settings.project_path / 'apps/api'}:{env.get('PYTHONPATH', '')}"
@@ -132,6 +145,24 @@ def run_subscription(subscription: dict, *, render_only: bool = False, digest_da
     message = f"exit={completed.returncode}\n{message}".strip()
     finish_run_log(run_id, "failed", message=message[-4000:], output_path=output_path)
     return {"id": run_id, "status": "failed", "message": message, "output_path": output_path}
+
+
+def _safe_run(subscription: dict, render_only: bool, digest_date: str, run_id: int) -> None:
+    try:
+        run_subscription(subscription, render_only=render_only, digest_date=digest_date, run_id=run_id)
+    except Exception as exc:  # pragma: no cover - defensive; run_subscription already handles most errors
+        finish_run_log(run_id, "failed", message=str(exc))
+
+
+def submit_run(subscription: dict, *, render_only: bool = False, digest_date: str = "") -> int:
+    """Create a run log and execute the report in the background.
+
+    Returns the run_id immediately so callers (the HTTP handler) don't block on
+    the subprocess. The caller can poll run log status to track completion.
+    """
+    run_id = create_run_log(subscription["id"], subscription["report_type"], "running")
+    _RUN_EXECUTOR.submit(_safe_run, subscription, render_only, digest_date, run_id)
+    return run_id
 
 
 def run_hot_collector(subscription: dict) -> dict:

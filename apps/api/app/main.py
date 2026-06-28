@@ -13,12 +13,13 @@ from app.schemas import (
     SubscriptionUpdate,
     ValidationResult,
 )
-from app.services.report_runner import run_subscription
+from app.services.report_runner import submit_run
 from app.services.scheduler import scheduler_status, start_scheduler, stop_scheduler, sync_jobs
 from app.services.validation import errors_only, format_errors, validate_subscription
 from app.store import (
     create_subscription,
     delete_subscription,
+    get_run_log,
     get_subscription,
     init_db,
     list_run_logs,
@@ -117,9 +118,20 @@ def run(subscription_id: int, payload: RunRequest) -> dict:
     subscription = get_subscription(subscription_id)
     if not subscription:
         raise HTTPException(status_code=404, detail="subscription not found")
-    result = run_subscription(subscription, render_only=payload.render_only or not payload.send, digest_date=payload.digest_date)
-    log = list_run_logs(limit=1)[0]
-    return log | {"message": result.get("message", log.get("message", ""))[:4000]}
+    run_id = submit_run(
+        subscription,
+        render_only=payload.render_only or not payload.send,
+        digest_date=payload.digest_date,
+    )
+    return get_run_log(run_id)
+
+
+@app.get("/api/runs/{run_id}", response_model=RunOut)
+def run_detail(run_id: int) -> dict:
+    log = get_run_log(run_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="run not found")
+    return log
 
 
 @app.get("/api/runs", response_model=list[RunOut])

@@ -34,6 +34,7 @@ venv/
 *.egg-info/
 node_modules/
 .next/
+*.tsbuildinfo
 
 # macOS / editors
 .DS_Store

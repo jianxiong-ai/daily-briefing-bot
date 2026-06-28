@@ -105,11 +105,52 @@ export default function Home() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [runningId, setRunningId] = useState<number | null>(null);
 
   const selectedReport = useMemo(
     () => reports.find((report) => report.name === form.report_type) || reports[0],
     [reports, form.report_type],
   );
+
+  const credentialFields = useMemo(
+    () => (selectedReport?.fields || []).filter((field) => field.group !== 'follow'),
+    [selectedReport],
+  );
+  const followFields = useMemo(
+    () => (selectedReport?.fields || []).filter((field) => field.group === 'follow'),
+    [selectedReport],
+  );
+
+  function renderField(field: ReportField) {
+    return (
+      <label key={field.key}>
+        <span className="field-label">
+          {field.label}
+          {field.required && <span className="field-required"> *必填</span>}
+          {!field.required && field.recommended && <span className="field-optional"> 建议填写</span>}
+          {!field.required && !field.recommended && field.group === 'follow' && (
+            <span className="field-optional"> 选填</span>
+          )}
+        </span>
+        {field.type === 'textarea' ? (
+          <textarea
+            value={form.config[field.key] || ''}
+            onChange={(event) => updateConfig(field.key, event.target.value)}
+            placeholder={field.placeholder}
+          />
+        ) : (
+          <input
+            type={field.type === 'number' ? 'number' : field.type === 'password' ? 'password' : 'text'}
+            autoComplete={field.type === 'password' ? 'off' : undefined}
+            value={form.config[field.key] || ''}
+            onChange={(event) => updateConfig(field.key, event.target.value)}
+            placeholder={field.placeholder}
+          />
+        )}
+        {field.help && <span className="field-help">{field.help}</span>}
+      </label>
+    );
+  }
 
   const pushTimeOutOfRange = useMemo(() => {
     const win = selectedReport?.window;
@@ -201,20 +242,41 @@ export default function Home() {
   }
 
   async function runNow(item: Subscription) {
-    setBusy(true);
-    setMessage('');
+    setRunningId(item.id);
+    setMessage(`「${item.name}」渲染测试运行中…`);
     try {
-      const result = await apiPost<RunLog>(`/api/subscriptions/${item.id}/run`, {
+      const started = await apiPost<RunLog>(`/api/subscriptions/${item.id}/run`, {
         render_only: true,
         send: false,
       });
-      setMessage(result.status === 'success' ? '已完成渲染测试。' : `测试失败：${result.message}`);
+      const finished = await pollRun(started.id);
+      if (!finished || finished.status === 'running') {
+        setMessage('渲染测试仍在运行，可稍后在运行记录中查看结果。');
+      } else if (finished.status === 'success') {
+        setMessage('已完成渲染测试。');
+      } else {
+        setMessage(`测试失败：${finished.message}`);
+      }
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
-      setBusy(false);
+      setRunningId(null);
     }
+  }
+
+  async function pollRun(runId: number): Promise<RunLog | null> {
+    const maxAttempts = 90;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      try {
+        const log = await apiGet<RunLog>(`/api/runs/${runId}`);
+        if (log.status !== 'running') return log;
+      } catch {
+        // transient error; keep polling
+      }
+    }
+    return null;
   }
 
   return (
@@ -283,37 +345,20 @@ export default function Home() {
             />
           </label>
 
-          <div className="field-section">
-            <h3>凭证与关注配置</h3>
-            {selectedReport?.fields.map((field) => (
-              <label key={field.key}>
-                <span className="field-label">
-                  {field.label}
-                  {field.required && <span className="field-required"> *必填</span>}
-                  {!field.required && field.recommended && <span className="field-optional"> 建议填写</span>}
-                  {!field.required && !field.recommended && field.group === 'follow' && (
-                    <span className="field-optional"> 选填</span>
-                  )}
-                </span>
-                {field.type === 'textarea' ? (
-                  <textarea
-                    value={form.config[field.key] || ''}
-                    onChange={(event) => updateConfig(field.key, event.target.value)}
-                    placeholder={field.placeholder}
-                  />
-                ) : (
-                  <input
-                    type={field.type === 'number' ? 'number' : field.type === 'password' ? 'password' : 'text'}
-                    autoComplete={field.type === 'password' ? 'off' : undefined}
-                    value={form.config[field.key] || ''}
-                    onChange={(event) => updateConfig(field.key, event.target.value)}
-                    placeholder={field.placeholder}
-                  />
-                )}
-                {field.help && <span className="field-help">{field.help}</span>}
-              </label>
-            ))}
-          </div>
+          {credentialFields.length > 0 && (
+            <div className="field-section">
+              <h3>凭证配置</h3>
+              {credentialFields.map(renderField)}
+            </div>
+          )}
+
+          {followFields.length > 0 && (
+            <div className="field-section">
+              <h3>关注内容配置</h3>
+              <p className="hint">以下为选填项，留空对应模块将不会渲染。</p>
+              {followFields.map(renderField)}
+            </div>
+          )}
 
           <button className="primary-button" type="submit" disabled={busy}>
             {busy ? '处理中...' : editingId ? '保存修改' : '创建订阅'}
@@ -340,8 +385,8 @@ export default function Home() {
                   {item.last_status && <p className={`run-status ${item.last_status}`}>最近运行：{item.last_status}</p>}
                 </div>
                 <div className="card-actions">
-                  <button type="button" onClick={() => runNow(item)} disabled={busy}>
-                    渲染测试
+                  <button type="button" onClick={() => runNow(item)} disabled={runningId !== null}>
+                    {runningId === item.id ? '运行中…' : '渲染测试'}
                   </button>
                   <button type="button" onClick={() => edit(item)}>
                     编辑
