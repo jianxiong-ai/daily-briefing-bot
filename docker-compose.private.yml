@@ -13,6 +13,10 @@ services:
       DATABASE_PATH: /data/subscriptions.sqlite3
       SUBSCRIPTION_ENV_DIR: /data/env
       SUBSCRIPTION_OUTPUT_DIR: /data/outputs
+      SUBSCRIPTION_RUNTIME_DIR: /data/runtime
+      # Optional: set in .env to pin the encryption key. If empty, a key is
+      # generated once at /data/secret.key inside the volume.
+      DASHBOARD_SECRET_KEY: ${DASHBOARD_SECRET_KEY:-}
     ports:
       - "8010:8000"
     volumes:

@@ -28,6 +28,25 @@ REDFOX_FIELD = {
     "help": "用于获取 RedFox 数据源内容。",
 }
 
+# Feishu image upload credentials. Optional: without them the report falls back
+# to text-only push instead of an image card.
+FEISHU_IMAGE_FIELDS = [
+    {
+        "key": "FEISHU_APP_ID",
+        "label": "飞书 App ID",
+        "type": "text",
+        "placeholder": "请输入",
+        "help": "选填，用于把日报渲染图上传到飞书；缺失则回退为文本推送。",
+    },
+    {
+        "key": "FEISHU_APP_SECRET",
+        "label": "飞书 App Secret",
+        "type": "password",
+        "placeholder": "请输入",
+        "help": "选填，与 App ID 配合用于飞书图片上传。",
+    },
+]
+
 
 REPORT_TITLES = {
     "ai": "AI 领域日报",
@@ -82,21 +101,26 @@ REPORT_FIELDS = {
     "ai": [
         REDFOX_FIELD,
         *LLM_FIELDS,
+        *FEISHU_IMAGE_FIELDS,
     ],
     "astock": [
         REDFOX_FIELD,
         *LLM_FIELDS,
+        *FEISHU_IMAGE_FIELDS,
     ],
     "cctv": [
         *LLM_FIELDS,
+        *FEISHU_IMAGE_FIELDS,
     ],
     "douyin": [
         REDFOX_FIELD,
         *LLM_FIELDS,
+        *FEISHU_IMAGE_FIELDS,
     ],
     "wechat": [
         REDFOX_FIELD,
         *LLM_FIELDS,
+        *FEISHU_IMAGE_FIELDS,
         {
             "key": "WECHAT_FOLLOW_AUTHORS",
             "label": "关注公众号",
@@ -108,6 +132,7 @@ REPORT_FIELDS = {
     ],
     "weibo": [
         *LLM_FIELDS,
+        *FEISHU_IMAGE_FIELDS,
         {
             "key": "WEIBO_COOKIE",
             "label": "微博 Cookie",
@@ -129,6 +154,7 @@ REPORT_FIELDS = {
     ],
     "zsxq": [
         *LLM_FIELDS,
+        *FEISHU_IMAGE_FIELDS,
         {
             "key": "ZSXQ_COOKIE",
             "label": "知识星球 Cookie",
