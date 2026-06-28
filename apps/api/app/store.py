@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, Optional
 from daily_briefing.reports import REPORTS
 
 from .config import get_settings
+from .crypto import decrypt_config, encrypt_config
 
 
 def utc_now() -> str:
@@ -84,7 +85,7 @@ def _row_to_subscription(row: sqlite3.Row) -> Dict[str, Any]:
         "is_active": bool(row["is_active"]),
         "push_time": row["push_time"],
         "feishu_webhook": row["feishu_webhook"],
-        "config": json.loads(row["config_json"] or "{}"),
+        "config": decrypt_config(json.loads(row["config_json"] or "{}")),
         "last_run_at": parse_dt(row["last_run_at"]),
         "last_status": row["last_status"],
         "last_message": row["last_message"],
@@ -110,24 +111,23 @@ def create_subscription(data: Dict[str, Any]) -> Dict[str, Any]:
     if report_type not in REPORTS:
         raise ValueError(f"unknown report type: {report_type}")
     now = utc_now()
+    config_json = json.dumps(encrypt_config(data.get("config", {})), ensure_ascii=False)
     with db() as conn:
         cur = conn.execute(
             """
             INSERT INTO subscriptions (
-                report_type, name, is_active, push_time, push_targets,
-                feishu_webhook, wechat_work_webhook, config_json, created_at, updated_at
+                report_type, name, is_active, push_time,
+                feishu_webhook, config_json, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 report_type,
                 data.get("name") or REPORTS[report_type].title,
                 1 if data.get("is_active", True) else 0,
                 data.get("push_time", "08:00"),
-                "primary",
                 data.get("feishu_webhook", ""),
-                "",
-                json.dumps(data.get("config", {}), ensure_ascii=False),
+                config_json,
                 now,
                 now,
             ),
@@ -145,22 +145,21 @@ def update_subscription(subscription_id: int, data: Dict[str, Any]) -> Dict[str,
         if value is not None:
             merged[key] = value
     now = utc_now()
+    config_json = json.dumps(encrypt_config(merged.get("config", {})), ensure_ascii=False)
     with db() as conn:
         conn.execute(
             """
             UPDATE subscriptions
-            SET name = ?, is_active = ?, push_time = ?, push_targets = ?,
-                feishu_webhook = ?, wechat_work_webhook = ?, config_json = ?, updated_at = ?
+            SET name = ?, is_active = ?, push_time = ?,
+                feishu_webhook = ?, config_json = ?, updated_at = ?
             WHERE id = ?
             """,
             (
                 merged["name"],
                 1 if merged["is_active"] else 0,
                 merged["push_time"],
-                "primary",
                 merged["feishu_webhook"],
-                "",
-                json.dumps(merged.get("config", {}), ensure_ascii=False),
+                config_json,
                 now,
                 subscription_id,
             ),

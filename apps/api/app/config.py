@@ -9,6 +9,8 @@ class Settings:
         self.database_path = os.environ.get("DATABASE_PATH", "data/subscriptions/subscriptions.sqlite3")
         self.subscription_env_dir = os.environ.get("SUBSCRIPTION_ENV_DIR", "data/subscriptions/env")
         self.subscription_output_dir = os.environ.get("SUBSCRIPTION_OUTPUT_DIR", "data/subscriptions/outputs")
+        self.subscription_runtime_dir = os.environ.get("SUBSCRIPTION_RUNTIME_DIR", "data/subscriptions/runtime")
+        self.secret_key = os.environ.get("DASHBOARD_SECRET_KEY", "").strip()
         self.api_cors_origins = os.environ.get(
             "API_CORS_ORIGINS",
             "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3010,http://127.0.0.1:3010,http://100.108.43.1:3010",
@@ -53,6 +55,17 @@ class Settings:
         if not path.is_absolute():
             path = self.project_path / path
         return path
+
+    @property
+    def runtime_dir(self) -> Path:
+        path = Path(self.subscription_runtime_dir).expanduser()
+        if not path.is_absolute():
+            path = self.project_path / path
+        return path
+
+    @property
+    def secret_key_file(self) -> Path:
+        return self.env_dir.parent / "secret.key"
 
 
 @lru_cache

@@ -93,6 +93,21 @@ class DashboardStoreTest(unittest.TestCase):
         self.assertTrue(cookie_path.exists())
         self.assertEqual(cookie_path.read_text(encoding="utf-8").strip(), "XSRF-TOKEN=test; SUB=test-sub")
 
+    def test_generated_env_isolates_runtime_per_subscription(self):
+        from app.services.report_runner import build_subscription_env
+        from app.store import create_subscription, init_db
+
+        init_db()
+        first = create_subscription({"report_type": "ai", "push_time": "07:50", "config": {}})
+        second = create_subscription({"report_type": "ai", "push_time": "07:50", "config": {}})
+
+        _, first_values = build_subscription_env(first)
+        _, second_values = build_subscription_env(second)
+
+        self.assertIn(f"subscription_{first['id']}_ai", first_values["DAILY_RUNTIME_DIR"])
+        self.assertIn(f"subscription_{second['id']}_ai", second_values["DAILY_RUNTIME_DIR"])
+        self.assertNotEqual(first_values["DAILY_RUNTIME_DIR"], second_values["DAILY_RUNTIME_DIR"])
+
 
 if __name__ == "__main__":
     unittest.main()

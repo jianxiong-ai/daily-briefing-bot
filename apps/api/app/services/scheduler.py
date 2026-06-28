@@ -49,7 +49,9 @@ def sync_jobs() -> None:
             replace_existing=True,
             coalesce=True,
             max_instances=1,
-            misfire_grace_time=15 * 60,
+            # Allow catching up a missed daily push within 30 minutes (e.g. brief
+            # downtime around the scheduled time). coalesce collapses duplicates.
+            misfire_grace_time=30 * 60,
         )
 
         window = REPORT_WINDOWS.get(subscription["report_type"], {})

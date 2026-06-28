@@ -6,11 +6,16 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
-from daily_briefing.config import parse_env_file
+from daily_briefing.config import SECRET_HINTS, parse_env_file
 from daily_briefing.reports import REPORTS
 
 from app.config import get_settings
 from app.store import create_run_log, finish_run_log
+
+
+def _is_secret_key(key: str) -> bool:
+    upper = key.upper()
+    return any(hint in upper for hint in SECRET_HINTS)
 
 
 # Manual "run now" requests execute here so the HTTP request returns immediately
@@ -50,8 +55,15 @@ def write_secret_file(subscription_id: int, report_type: str, key: str, value: s
 def build_subscription_env(subscription: dict) -> tuple[Path, dict]:
     settings = get_settings()
     report = REPORTS[subscription["report_type"]]
-    base_values = parse_env_file(report.default_env)
+    # Inherit only non-secret operational defaults (timeouts, limits, prompt
+    # versions, etc.) from the repo env. Secret-looking keys are dropped so a
+    # developer's personal keys/cookies/webhooks never bleed into a subscription.
+    base_values = {key: value for key, value in parse_env_file(report.default_env).items() if not _is_secret_key(key)}
     values = dict(base_values)
+
+    # Isolate runtime/cache/state per subscription so two subscriptions of the
+    # same report type don't collide on caches or the Weibo hot-search archive.
+    runtime_root = settings.runtime_dir / f"subscription_{subscription['id']}_{subscription['report_type']}"
     values.update(
         {
             "FEISHU_WEBHOOK": subscription.get("feishu_webhook", ""),
@@ -60,6 +72,8 @@ def build_subscription_env(subscription: dict) -> tuple[Path, dict]:
             "WECHAT_WORK_WEBHOOKS": "",
             "PUSH_TARGETS": "primary",
             "SEND_AT_LOCAL": "",
+            "DAILY_RUNTIME_DIR": str(runtime_root),
+            "DAILY_LOG_DIR": str(runtime_root / "logs"),
         }
     )
     config_values = {key: str(value) for key, value in subscription.get("config", {}).items() if value is not None}
