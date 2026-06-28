@@ -250,7 +250,7 @@ export default function Home() {
           </label>
 
           <div className="field-section">
-            <h3>日报参数</h3>
+            <h3>凭证与关注配置</h3>
             {selectedReport?.fields.map((field) => (
               <label key={field.key}>
                 {field.label}
@@ -262,7 +262,8 @@ export default function Home() {
                   />
                 ) : (
                   <input
-                    type={field.type === 'number' ? 'number' : 'text'}
+                    type={field.type === 'number' ? 'number' : field.type === 'password' ? 'password' : 'text'}
+                    autoComplete={field.type === 'password' ? 'off' : undefined}
                     value={form.config[field.key] || ''}
                     onChange={(event) => updateConfig(field.key, event.target.value)}
                     placeholder={field.placeholder}

@@ -66,6 +66,33 @@ class DashboardStoreTest(unittest.TestCase):
         self.assertEqual(values["PUSH_TARGETS"], "primary")
         self.assertEqual(values["SEND_AT_LOCAL"], "")
 
+    def test_generated_env_writes_cookie_to_private_file(self):
+        from app.services.report_runner import build_subscription_env
+        from app.store import create_subscription, init_db
+
+        init_db()
+        created = create_subscription(
+            {
+                "report_type": "weibo",
+                "name": "微博日报",
+                "push_time": "22:30",
+                "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/test",
+                "config": {
+                    "WEIBO_COOKIE": "XSRF-TOKEN=test; SUB=test-sub",
+                    "WEIBO_BLOGGER_IDS": "1763864272",
+                },
+            }
+        )
+
+        env_path, values = build_subscription_env(created)
+        text = env_path.read_text(encoding="utf-8")
+        cookie_path = Path(values["WEIBO_COOKIE_FILE"])
+
+        self.assertNotIn("WEIBO_COOKIE=", text)
+        self.assertIn("WEIBO_COOKIE_FILE", text)
+        self.assertTrue(cookie_path.exists())
+        self.assertEqual(cookie_path.read_text(encoding="utf-8").strip(), "XSRF-TOKEN=test; SUB=test-sub")
+
 
 if __name__ == "__main__":
     unittest.main()

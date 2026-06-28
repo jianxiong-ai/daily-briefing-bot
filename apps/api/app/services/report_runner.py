@@ -22,9 +22,23 @@ COMMON_KEYS = {
     "FEISHU_IMAGE_DAILY_ENABLED",
 }
 
+COOKIE_INPUTS = {
+    "weibo": ("WEIBO_COOKIE", "WEIBO_COOKIE_FILE"),
+    "zsxq": ("ZSXQ_COOKIE", "ZSXQ_COOKIE_FILE"),
+}
+
 
 def quote_env_value(value: str) -> str:
     return shlex.quote(str(value))
+
+
+def write_secret_file(subscription_id: int, report_type: str, key: str, value: str) -> Path:
+    settings = get_settings()
+    settings.env_dir.mkdir(parents=True, exist_ok=True)
+    path = settings.env_dir / f"subscription_{subscription_id}_{report_type}_{key.lower()}.txt"
+    path.write_text(value.strip() + "\n", encoding="utf-8")
+    path.chmod(0o600)
+    return path
 
 
 def build_subscription_env(subscription: dict) -> tuple[Path, dict]:
@@ -42,7 +56,15 @@ def build_subscription_env(subscription: dict) -> tuple[Path, dict]:
             "SEND_AT_LOCAL": "",
         }
     )
-    values.update({key: str(value) for key, value in subscription.get("config", {}).items() if value is not None})
+    config_values = {key: str(value) for key, value in subscription.get("config", {}).items() if value is not None}
+    cookie_input = COOKIE_INPUTS.get(subscription["report_type"])
+    if cookie_input:
+        cookie_key, cookie_file_key = cookie_input
+        raw_cookie = config_values.pop(cookie_key, "").strip()
+        if raw_cookie:
+            cookie_path = write_secret_file(subscription["id"], subscription["report_type"], cookie_key, raw_cookie)
+            config_values[cookie_file_key] = str(cookie_path)
+    values.update(config_values)
 
     settings.env_dir.mkdir(parents=True, exist_ok=True)
     env_path = settings.env_dir / f"subscription_{subscription['id']}_{subscription['report_type']}.env"
