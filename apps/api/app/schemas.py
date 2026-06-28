@@ -10,6 +10,7 @@ class ReportField(BaseModel):
     type: str
     placeholder: str = ""
     help: str = ""
+    help_url: str = ""
     required: bool = False
     recommended: bool = False
     group: str = ""

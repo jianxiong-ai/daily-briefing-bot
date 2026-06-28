@@ -64,8 +64,29 @@ textarea {
 }
 
 .topbar h1 {
-  font-size: 30px;
-  letter-spacing: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: #f1f3f6;
+  color: #1f2937;
+}
+
+.topbar .brand {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+
+.topbar .brand-tagline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .eyebrow {
@@ -102,9 +123,9 @@ textarea {
 }
 
 .field-required {
-  color: #cf1322;
-  font-size: 12px;
-  font-weight: 600;
+  color: #ff9a96;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .field-optional {
@@ -117,7 +138,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(360px, 0.92fr) minmax(420px, 1.08fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .panel {
@@ -196,6 +217,12 @@ textarea {
   font-weight: 500;
 }
 
+.field-help-link {
+  margin-left: 6px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .field-section {
   display: grid;
   gap: 12px;
@@ -204,17 +231,50 @@ textarea {
 }
 
 .toggle-row {
+  display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  min-height: 42px;
-  padding: 0 10px;
+  min-height: 44px;
+  padding: 0 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #fff;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.toggle-row > span {
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .toggle-row input {
-  width: auto;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.report-desc {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(22, 119, 255, 0.06);
+  color: #475467;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.form-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(217, 45, 32, 0.25);
+  border-radius: 10px;
+  background: #fef3f2;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.55;
+  white-space: pre-line;
 }
 
 .primary-button,

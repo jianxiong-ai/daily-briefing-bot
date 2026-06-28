@@ -7,6 +7,7 @@ type ReportField = {
   type: string;
   placeholder: string;
   help?: string;
+  help_url?: string;
   required?: boolean;
   recommended?: boolean;
   group?: string;
@@ -106,11 +107,15 @@ export default function Home() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [runningId, setRunningId] = useState<number | null>(null);
+  const [formError, setFormError] = useState('');
 
   const selectedReport = useMemo(
     () => reports.find((report) => report.name === form.report_type) || reports[0],
     [reports, form.report_type],
   );
+
+  const reportTitle = (reportType: string) =>
+    reports.find((report) => report.name === reportType)?.title || reportType;
 
   const credentialFields = useMemo(
     () => (selectedReport?.fields || []).filter((field) => field.group !== 'follow'),
@@ -126,7 +131,7 @@ export default function Home() {
       <label key={field.key}>
         <span className="field-label">
           {field.label}
-          {field.required && <span className="field-required"> *必填</span>}
+          {field.required && <span className="field-required">*</span>}
           {!field.required && field.recommended && <span className="field-optional"> 建议填写</span>}
           {!field.required && !field.recommended && field.group === 'follow' && (
             <span className="field-optional"> 选填</span>
@@ -147,7 +152,16 @@ export default function Home() {
             placeholder={field.placeholder}
           />
         )}
-        {field.help && <span className="field-help">{field.help}</span>}
+        {field.help && (
+          <span className="field-help">
+            {field.help}
+            {field.help_url && (
+              <a className="field-help-link" href={field.help_url} target="_blank" rel="noreferrer">
+                获取 Key
+              </a>
+            )}
+          </span>
+        )}
       </label>
     );
   }
@@ -184,6 +198,7 @@ export default function Home() {
 
   function changeReportType(reportType: string) {
     const report = reports.find((item) => item.name === reportType);
+    setFormError('');
     setForm({
       ...form,
       report_type: reportType,
@@ -212,11 +227,20 @@ export default function Home() {
 
   function reset() {
     setEditingId(null);
+    setFormError('');
     setForm(blankForm(reports));
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    const missing = (selectedReport?.fields || []).filter(
+      (field) => field.required && !(form.config[field.key] || '').trim(),
+    );
+    if (missing.length) {
+      setFormError(`请先填写必填项：${missing.map((field) => field.label).join('、')}`);
+      return;
+    }
+    setFormError('');
     setBusy(true);
     setMessage('');
     try {
@@ -229,7 +253,7 @@ export default function Home() {
       reset();
       await load();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setFormError(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(false);
     }
@@ -282,8 +306,11 @@ export default function Home() {
   return (
     <main className="app-shell">
       <section className="topbar">
-        <div>
-          <h1>Daily Briefing Bot</h1>
+        <div className="brand">
+          <h1>DAILY-BRIEFING-BOT</h1>
+          <p className="brand-tagline">
+            自托管社媒日报工作台 · 7 套日报 · 定时推送飞书 · 凭证与关注内容可配
+          </p>
         </div>
       </section>
 
@@ -313,16 +340,25 @@ export default function Home() {
               ))}
             </select>
           </label>
-          {selectedReport && <p className="hint">{REPORT_HINTS[selectedReport.name] || selectedReport.default_env}</p>}
+          {selectedReport && (
+            <p className="report-desc">{REPORT_HINTS[selectedReport.name] || selectedReport.default_env}</p>
+          )}
 
           <div className="form-grid">
             <label>
               推送时间
               <input type="time" value={form.push_time} onChange={(event) => setForm({ ...form, push_time: event.target.value })} />
             </label>
-            <label className="toggle-row">
-              <span>启用订阅</span>
-              <input type="checkbox" checked={form.is_active} onChange={(event) => setForm({ ...form, is_active: event.target.checked })} />
+            <label>
+              是否启用订阅
+              <span className="toggle-row">
+                <span>{form.is_active ? '已启用' : '未启用'}</span>
+                <input
+                  type="checkbox"
+                  checked={form.is_active}
+                  onChange={(event) => setForm({ ...form, is_active: event.target.checked })}
+                />
+              </span>
             </label>
           </div>
           {selectedReport?.window?.recommended_start && (
@@ -360,6 +396,8 @@ export default function Home() {
             </div>
           )}
 
+          {formError && <p className="form-error">{formError}</p>}
+
           <button className="primary-button" type="submit" disabled={busy}>
             {busy ? '处理中...' : editingId ? '保存修改' : '创建订阅'}
           </button>
@@ -378,7 +416,7 @@ export default function Home() {
             {subscriptions.map((item) => (
               <article className="subscription-card" key={item.id}>
                 <div>
-                  <h3>{item.name}</h3>
+                  <h3>{reportTitle(item.report_type)}</h3>
                   <p>
                     {item.report_type} · {item.push_time} · {item.is_active ? '已启用' : '已暂停'}
                   </p>

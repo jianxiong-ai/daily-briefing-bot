@@ -9,6 +9,7 @@ LLM_FIELDS = [
         "placeholder": "请输入",
         "required": True,
         "help": "用于日报内容总结；配置多个 key 时，原脚本会轮询使用。",
+        "help_url": "https://platform.deepseek.com/api_keys",
     },
     {
         "key": "DEEPSEEK_MODEL",
@@ -26,6 +27,7 @@ REDFOX_FIELD = {
     "placeholder": "请输入",
     "required": True,
     "help": "用于获取 RedFox 数据源内容。",
+    "help_url": "https://redfox.hk/dashboard/keys",
 }
 
 # Feishu image upload credentials. Optional: without them the report falls back
