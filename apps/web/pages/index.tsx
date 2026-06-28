@@ -203,10 +203,8 @@ export default function Home() {
     <main className="app-shell">
       <section className="topbar">
         <div>
-          <p className="eyebrow">Daily Briefing Bot</p>
-          <h1>日报订阅控制台</h1>
+          <h1>Daily Briefing Bot</h1>
         </div>
-        <p className="topbar-summary">配置日报类型、关注源、飞书 Webhook 和推送时间；后端进程内定时执行，无需 launchd。</p>
       </section>
 
       {message && <div className="notice">{message}</div>}
@@ -239,10 +237,6 @@ export default function Home() {
 
           <div className="form-grid">
             <label>
-              订阅名称
-              <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-            </label>
-            <label>
               推送时间
               <input type="time" value={form.push_time} onChange={(event) => setForm({ ...form, push_time: event.target.value })} />
             </label>
@@ -265,14 +259,6 @@ export default function Home() {
               value={form.feishu_webhook}
               onChange={(event) => setForm({ ...form, feishu_webhook: event.target.value })}
               placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
-            />
-          </label>
-          <label>
-            企业微信 Webhook
-            <input
-              value={form.wechat_work_webhook}
-              onChange={(event) => setForm({ ...form, wechat_work_webhook: event.target.value })}
-              placeholder="可选：https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
             />
           </label>
 

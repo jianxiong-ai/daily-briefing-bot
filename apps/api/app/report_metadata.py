@@ -1,6 +1,17 @@
 from daily_briefing.reports import REPORTS
 
 
+REPORT_TITLES = {
+    "ai": "AI 领域日报",
+    "astock": "A 股日报",
+    "cctv": "朝闻天下日报",
+    "douyin": "抖音日报",
+    "wechat": "公众号日报",
+    "weibo": "微博日报",
+    "zsxq": "知识星球日报",
+}
+
+
 REPORT_FIELDS = {
     "ai": [
         {"key": "AI_XHS_KEYWORD", "label": "小红书关键词", "type": "text", "placeholder": "AI"},
@@ -60,7 +71,7 @@ def report_options():
         items.append(
             {
                 "name": name,
-                "title": report.title,
+                "title": REPORT_TITLES.get(name, report.title),
                 "default_env": str(report.default_env),
                 "fields": REPORT_FIELDS.get(name, []),
             }
