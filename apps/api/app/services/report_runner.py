@@ -14,7 +14,9 @@ from app.store import create_run_log, finish_run_log
 
 COMMON_KEYS = {
     "FEISHU_WEBHOOK",
+    "FEISHU_WEBHOOKS",
     "WECHAT_WORK_WEBHOOK",
+    "WECHAT_WORK_WEBHOOKS",
     "PUSH_TARGETS",
     "SEND_AT_LOCAL",
     "FEISHU_IMAGE_DAILY_ENABLED",
@@ -33,8 +35,10 @@ def build_subscription_env(subscription: dict) -> tuple[Path, dict]:
     values.update(
         {
             "FEISHU_WEBHOOK": subscription.get("feishu_webhook", ""),
-            "WECHAT_WORK_WEBHOOK": subscription.get("wechat_work_webhook", ""),
-            "PUSH_TARGETS": subscription.get("push_targets") or "primary",
+            "FEISHU_WEBHOOKS": "",
+            "WECHAT_WORK_WEBHOOK": "",
+            "WECHAT_WORK_WEBHOOKS": "",
+            "PUSH_TARGETS": "primary",
             "SEND_AT_LOCAL": "",
         }
     )
@@ -70,8 +74,6 @@ def run_subscription(subscription: dict, *, render_only: bool = False, digest_da
         str(env_path),
         "--send-at",
         "",
-        "--push-targets",
-        subscription.get("push_targets") or "primary",
     ]
     if digest_date:
         cmd.extend(["--date", digest_date])

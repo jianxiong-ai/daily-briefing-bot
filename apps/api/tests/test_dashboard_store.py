@@ -29,7 +29,6 @@ class DashboardStoreTest(unittest.TestCase):
                 "report_type": "wechat",
                 "name": "公众号日报",
                 "push_time": "07:55",
-                "push_targets": "primary",
                 "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/test",
                 "config": {"WECHAT_FOLLOW_AUTHORS": "财联社|cls-telegraph"},
             }
@@ -53,7 +52,6 @@ class DashboardStoreTest(unittest.TestCase):
                 "report_type": "weibo",
                 "name": "微博日报",
                 "push_time": "22:30",
-                "push_targets": "primary",
                 "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/test",
                 "config": {"WEIBO_BLOGGER_IDS": "1763864272,1906286443"},
             }
@@ -63,6 +61,9 @@ class DashboardStoreTest(unittest.TestCase):
         text = env_path.read_text(encoding="utf-8")
         self.assertIn("WEIBO_BLOGGER_IDS", text)
         self.assertEqual(values["FEISHU_WEBHOOK"], "https://open.feishu.cn/open-apis/bot/v2/hook/test")
+        self.assertEqual(values["FEISHU_WEBHOOKS"], "")
+        self.assertEqual(values["WECHAT_WORK_WEBHOOKS"], "")
+        self.assertEqual(values["PUSH_TARGETS"], "primary")
         self.assertEqual(values["SEND_AT_LOCAL"], "")
 
 

@@ -24,9 +24,7 @@ class SubscriptionBase(BaseModel):
     name: str = ""
     is_active: bool = True
     push_time: str = Field(default="08:00", pattern=r"^\d{2}:\d{2}$")
-    push_targets: str = Field(default="primary", pattern=r"^(primary|all)$")
     feishu_webhook: str = ""
-    wechat_work_webhook: str = ""
     config: Dict[str, str] = Field(default_factory=dict)
 
     @field_validator("push_time")
@@ -46,9 +44,7 @@ class SubscriptionUpdate(BaseModel):
     name: Optional[str] = None
     is_active: Optional[bool] = None
     push_time: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
-    push_targets: Optional[str] = Field(default=None, pattern=r"^(primary|all)$")
     feishu_webhook: Optional[str] = None
-    wechat_work_webhook: Optional[str] = None
     config: Optional[Dict[str, str]] = None
 
 

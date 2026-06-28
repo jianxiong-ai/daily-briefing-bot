@@ -22,9 +22,7 @@ type Subscription = {
   name: string;
   is_active: boolean;
   push_time: string;
-  push_targets: 'primary' | 'all';
   feishu_webhook: string;
-  wechat_work_webhook: string;
   config: Record<string, string>;
   last_run_at?: string | null;
   last_status?: string;
@@ -75,9 +73,7 @@ function blankForm(reports: ReportOption[]) {
     name: reports[0]?.title || '',
     is_active: true,
     push_time: DEFAULT_TIMES[reportType] || '08:00',
-    push_targets: 'primary' as 'primary' | 'all',
     feishu_webhook: '',
-    wechat_work_webhook: '',
     config: {} as Record<string, string>,
   };
 }
@@ -142,9 +138,7 @@ export default function Home() {
       name: item.name,
       is_active: item.is_active,
       push_time: item.push_time,
-      push_targets: item.push_targets,
       feishu_webhook: item.feishu_webhook,
-      wechat_work_webhook: item.wechat_work_webhook,
       config: item.config || {},
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -240,13 +234,6 @@ export default function Home() {
               推送时间
               <input type="time" value={form.push_time} onChange={(event) => setForm({ ...form, push_time: event.target.value })} />
             </label>
-            <label>
-              推送范围
-              <select value={form.push_targets} onChange={(event) => setForm({ ...form, push_targets: event.target.value as 'primary' | 'all' })}>
-                <option value="primary">主机器人</option>
-                <option value="all">全部机器人</option>
-              </select>
-            </label>
             <label className="toggle-row">
               <span>启用订阅</span>
               <input type="checkbox" checked={form.is_active} onChange={(event) => setForm({ ...form, is_active: event.target.checked })} />
@@ -306,7 +293,7 @@ export default function Home() {
                 <div>
                   <h3>{item.name}</h3>
                   <p>
-                    {item.report_type} · {item.push_time} · {item.is_active ? '已启用' : '已暂停'} · {item.push_targets === 'primary' ? '主机器人' : '全部机器人'}
+                    {item.report_type} · {item.push_time} · {item.is_active ? '已启用' : '已暂停'}
                   </p>
                   {item.last_status && <p className={`run-status ${item.last_status}`}>最近运行：{item.last_status}</p>}
                 </div>
