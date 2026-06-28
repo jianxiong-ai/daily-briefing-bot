@@ -36,43 +36,64 @@ MUTED = "#6a7894"
 RULE = "#c8ddf4"
 
 
-def _font_path():
-    candidates = [
-        "/System/Library/Fonts/PingFang.ttc",
-        "/System/Library/Fonts/Hiragino Sans GB.ttc",
-        "/System/Library/Fonts/STHeiti Light.ttc",
-        "/Library/Fonts/Arial Unicode.ttf",
-        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-    ]
+def _first_existing(candidates):
     for path in candidates:
         if os.path.exists(path):
             return path
     return ""
 
 
-FONT_PATH = _font_path()
+# Regular weight: prefer macOS system fonts (launchd host), fall back to the
+# Noto CJK font installed in the Docker image so containers render CJK too.
+REGULAR_FONT_PATH = _first_existing(
+    [
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-VF.otf",
+    ]
+)
+# Bold weight: macOS uses a heavier face inside PingFang.ttc (index 2); on Linux
+# we ship a dedicated bold file when available, else fall back to regular.
+BOLD_FONT_PATH = (
+    _first_existing(
+        [
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        ]
+    )
+    or REGULAR_FONT_PATH
+)
+FONT_PATH = REGULAR_FONT_PATH
 
 
 def _font(size, bold=False):
-    if FONT_PATH:
+    path = BOLD_FONT_PATH if bold else REGULAR_FONT_PATH
+    if path:
         try:
-            index = 2 if bold and FONT_PATH.endswith(".ttc") else 0
-            return ImageFont.truetype(FONT_PATH, size=size, index=index)
+            index = 2 if bold and path.endswith("PingFang.ttc") else 0
+            return ImageFont.truetype(path, size=size, index=index)
         except Exception:
             try:
-                return ImageFont.truetype(FONT_PATH, size=size)
+                return ImageFont.truetype(path, size=size)
             except Exception:
                 pass
     return ImageFont.load_default()
 
 
 def _font_with_index(size, index):
-    if FONT_PATH and FONT_PATH.endswith(".ttc"):
+    # PingFang.ttc exposes a distinct body weight at this index on macOS; other
+    # platforms have no equivalent collection layout, so use the regular face.
+    if REGULAR_FONT_PATH.endswith("PingFang.ttc"):
         try:
-            return ImageFont.truetype(FONT_PATH, size=size, index=index)
+            return ImageFont.truetype(REGULAR_FONT_PATH, size=size, index=index)
         except Exception:
             pass
-    return _font(size, bool(index))
+    return _font(size, False)
 
 
 TITLE_FONT = _font(58, True)

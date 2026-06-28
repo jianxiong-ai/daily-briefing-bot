@@ -148,8 +148,7 @@ REPORT_FIELDS = {
             "type": "textarea",
             "placeholder": "请输入",
             "group": "follow",
-            "recommended": True,
-            "help": "选填，留空则不展示关注博主模块。多个 UID 用英文逗号、分号或换行分隔。",
+            "help": "选填，留空则使用内置默认博主列表。支持 UID 或 UID|显示名；多个用逗号、分号或换行分隔。",
         },
     ],
     "zsxq": [
