@@ -151,7 +151,7 @@ def run_image(run_id: int) -> FileResponse:
         raise HTTPException(status_code=403, detail="run image path is outside allowed directories")
     if not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail="run image file not found")
-    return FileResponse(path, media_type="image/png", filename=path.name)
+    return FileResponse(path, media_type="image/png", headers={"Content-Disposition": "inline"})
 
 
 @app.get("/api/runs", response_model=list[RunOut])
