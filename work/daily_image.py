@@ -260,6 +260,16 @@ def draw_centered_text(draw, x1, x2, y, text, font, fill):
     draw.text((x1 + (x2 - x1 - width) / 2, y), text, font=font, fill=fill)
 
 
+def draw_centered_text_box(draw, xy, text, font, fill, y_offset=0):
+    x1, y1, x2, y2 = xy
+    bbox = draw.textbbox((0, 0), str(text or ""), font=font)
+    text_width_value = bbox[2] - bbox[0]
+    text_height_value = bbox[3] - bbox[1]
+    x = x1 + (x2 - x1 - text_width_value) / 2 - bbox[0]
+    y = y1 + (y2 - y1 - text_height_value) / 2 - bbox[1] + y_offset
+    draw.text((x, y), text, font=font, fill=fill)
+
+
 def split_title(title):
     title = compact_text(title)
     title = re.sub(r"^(知识星球日报)\s+知识星球(\s+\d{4}-\d{2}-\d{2})$", r"\1\2", title)
@@ -470,7 +480,7 @@ def draw_gradient_chip(image, xy, radius, text, font):
     overlay = Image.composite(grad, overlay, mask)
     image.alpha_composite(overlay)
     draw = ImageDraw.Draw(image)
-    draw_centered_text(draw, x1, x2, y1 + (y2 - y1 - line_height([("", font, "#fff")])) / 2 - 2, text, font, "#ffffff")
+    draw_centered_text_box(draw, (x1, y1, x2, y2), text, font, "#ffffff", y_offset=-1)
 
 
 def render_daily_image(title, sections, output_path=None, width=DEFAULT_WIDTH):
