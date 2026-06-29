@@ -475,7 +475,11 @@ export default function Home() {
               </div>
               <p>{new Date(run.started_at).toLocaleString()}</p>
               {run.output_path && (
-                <a href={apiUrl(`/api/runs/${run.id}/image`)} target="_blank" rel="noreferrer">
+                <a
+                  href={apiUrl(`/api/runs/${run.id}/image?v=${encodeURIComponent(run.finished_at || run.started_at)}`)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   查看渲染图片
                 </a>
               )}
