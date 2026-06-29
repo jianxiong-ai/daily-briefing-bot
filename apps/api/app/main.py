@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
@@ -132,6 +135,23 @@ def run_detail(run_id: int) -> dict:
     if not log:
         raise HTTPException(status_code=404, detail="run not found")
     return log
+
+
+@app.get("/api/runs/{run_id}/image")
+def run_image(run_id: int) -> FileResponse:
+    log = get_run_log(run_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="run not found")
+    output_path = log.get("output_path") or ""
+    if not output_path:
+        raise HTTPException(status_code=404, detail="run image not found")
+    path = Path(output_path).expanduser().resolve()
+    allowed_roots = [settings.output_dir.resolve(), settings.runtime_dir.resolve()]
+    if not any(path == root or root in path.parents for root in allowed_roots):
+        raise HTTPException(status_code=403, detail="run image path is outside allowed directories")
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="run image file not found")
+    return FileResponse(path, media_type="image/png", filename=path.name)
 
 
 @app.get("/api/runs", response_model=list[RunOut])

@@ -93,10 +93,6 @@ function blankForm(reports: ReportOption[]) {
   };
 }
 
-function basename(path: string) {
-  return path.split('/').filter(Boolean).pop() || '';
-}
-
 export default function Home() {
   const [reports, setReports] = useState<ReportOption[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -471,23 +467,20 @@ export default function Home() {
           <span className="muted">{scheduler?.timezone || 'Asia/Shanghai'}</span>
         </div>
         <div className="run-grid">
-          {runs.map((run) => {
-            const name = basename(run.output_path);
-            return (
-              <article className="run-card" key={run.id}>
-                <div>
-                  <strong>{run.report_type}</strong>
-                  <span className={`run-status ${run.status}`}>{run.status}</span>
-                </div>
-                <p>{new Date(run.started_at).toLocaleString()}</p>
-                {name && (
-                  <a href={apiUrl(`/outputs/${name}`)} target="_blank" rel="noreferrer">
-                    查看渲染图片
-                  </a>
-                )}
-              </article>
-            );
-          })}
+          {runs.map((run) => (
+            <article className="run-card" key={run.id}>
+              <div>
+                <strong>{run.report_type}</strong>
+                <span className={`run-status ${run.status}`}>{run.status}</span>
+              </div>
+              <p>{new Date(run.started_at).toLocaleString()}</p>
+              {run.output_path && (
+                <a href={apiUrl(`/api/runs/${run.id}/image`)} target="_blank" rel="noreferrer">
+                  查看渲染图片
+                </a>
+              )}
+            </article>
+          ))}
         </div>
       </section>
     </main>

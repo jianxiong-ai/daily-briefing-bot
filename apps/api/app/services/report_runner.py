@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -39,6 +41,21 @@ COOKIE_INPUTS = {
     "weibo": ("WEIBO_COOKIE", "WEIBO_COOKIE_FILE"),
     "zsxq": ("ZSXQ_COOKIE", "ZSXQ_COOKIE_FILE"),
 }
+
+
+def extract_rendered_image_path(message: str) -> str:
+    matches = re.findall(r"(?:feishu image rendered path|render only output)=([^\\s]+)", message or "")
+    return matches[-1] if matches else ""
+
+
+def find_latest_rendered_image(runtime_root: Path, started_at: float) -> str:
+    image_dir = runtime_root / "images"
+    if not image_dir.exists():
+        return ""
+    candidates = [path for path in image_dir.glob("*.png") if path.is_file() and path.stat().st_mtime >= started_at - 2]
+    if not candidates:
+        return ""
+    return str(max(candidates, key=lambda path: path.stat().st_mtime))
 
 
 def quote_env_value(value: str) -> str:
@@ -139,6 +156,7 @@ def run_subscription(
     env = os.environ.copy()
     env.update(env_values)
     env["PYTHONPATH"] = f"{settings.project_path}:{settings.project_path / 'apps/api'}:{env.get('PYTHONPATH', '')}"
+    started_at = time.time()
     try:
         completed = subprocess.run(
             cmd,
@@ -154,13 +172,16 @@ def run_subscription(
         return {"id": run_id, "status": "failed", "message": message, "output_path": output_path}
 
     message = "\n".join(part for part in (completed.stdout.strip(), completed.stderr.strip()) if part).strip()
+    runtime_root = Path(env_values["DAILY_RUNTIME_DIR"])
+    rendered_path = output_path or extract_rendered_image_path(message) or find_latest_rendered_image(runtime_root, started_at)
     if completed.returncode == 0:
-        finish_run_log(run_id, "success", message=message[-4000:], output_path=output_path)
-        return {"id": run_id, "status": "success", "message": message, "output_path": output_path}
+        finish_run_log(run_id, "success", message=message[-4000:], output_path=rendered_path)
+        return {"id": run_id, "status": "success", "message": message, "output_path": rendered_path}
 
     message = f"exit={completed.returncode}\n{message}".strip()
-    finish_run_log(run_id, "failed", message=message[-4000:], output_path=output_path)
-    return {"id": run_id, "status": "failed", "message": message, "output_path": output_path}
+    rendered_path = output_path or extract_rendered_image_path(message) or find_latest_rendered_image(runtime_root, started_at)
+    finish_run_log(run_id, "failed", message=message[-4000:], output_path=rendered_path)
+    return {"id": run_id, "status": "failed", "message": message, "output_path": rendered_path}
 
 
 def _safe_run(subscription: dict, render_only: bool, digest_date: str, run_id: int) -> None:
