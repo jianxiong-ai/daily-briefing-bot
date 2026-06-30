@@ -3,6 +3,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 
 from app.config import get_settings
 from app.report_metadata import REPORT_WINDOWS
+from app.services.retention import cleanup_old_run_records
 from app.services.report_runner import run_hot_collector, run_subscription
 from app.store import get_subscription, list_subscriptions
 
@@ -13,7 +14,7 @@ scheduler = BackgroundScheduler(
     executors={"default": ThreadPoolExecutor(max_workers=3)},
 )
 
-_MANAGED_PREFIXES = ("subscription-", "collector-")
+_MANAGED_PREFIXES = ("subscription-", "collector-", "cleanup-")
 
 
 def _job(subscription_id: int) -> None:
@@ -28,6 +29,13 @@ def _collector_job(subscription_id: int) -> None:
     if not subscription or not subscription["is_active"]:
         return
     run_hot_collector(subscription)
+
+
+def _cleanup_job() -> None:
+    try:
+        cleanup_old_run_records()
+    except Exception as exc:  # pragma: no cover - scheduler safety net
+        print(f"run record cleanup failed: {exc}")
 
 
 def sync_jobs() -> None:
@@ -70,6 +78,19 @@ def sync_jobs() -> None:
                 misfire_grace_time=10 * 60,
             )
 
+    scheduler.add_job(
+        _cleanup_job,
+        "cron",
+        id="cleanup-run-records",
+        name="运行记录清理",
+        hour=3,
+        minute=30,
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=60 * 60,
+    )
+
 
 def start_scheduler() -> None:
     if not settings.scheduler_enabled:
@@ -77,6 +98,7 @@ def start_scheduler() -> None:
     if not scheduler.running:
         scheduler.start()
     sync_jobs()
+    _cleanup_job()
 
 
 def stop_scheduler() -> None:

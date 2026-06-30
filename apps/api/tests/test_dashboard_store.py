@@ -66,6 +66,24 @@ class DashboardStoreTest(unittest.TestCase):
         self.assertEqual(values["PUSH_TARGETS"], "primary")
         self.assertEqual(values["SEND_AT_LOCAL"], "")
 
+    def test_wechat_subscription_defaults_to_previous_day(self):
+        from app.services.report_runner import build_subscription_env
+        from app.store import create_subscription, init_db
+
+        init_db()
+        created = create_subscription(
+            {
+                "report_type": "wechat",
+                "name": "公众号日报",
+                "push_time": "07:55",
+                "config": {"WECHAT_FOLLOW_AUTHORS": "财联社|cls-telegraph"},
+            }
+        )
+
+        _, values = build_subscription_env(created)
+
+        self.assertEqual(values["WECHAT_DIGEST_OFFSET_DAYS"], "1")
+
     def test_generated_env_writes_cookie_to_private_file(self):
         from app.services.report_runner import build_subscription_env
         from app.store import create_subscription, init_db

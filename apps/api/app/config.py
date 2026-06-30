@@ -21,6 +21,7 @@ class Settings:
         )
         self.scheduler_enabled = os.environ.get("SCHEDULER_ENABLED", "1").strip().lower() not in {"0", "false", "no"}
         self.scheduler_timezone = os.environ.get("SCHEDULER_TIMEZONE", "Asia/Shanghai")
+        self.run_retention_days = int(os.environ.get("DASHBOARD_RUN_RETENTION_DAYS", "3"))
         self.project_dir = os.environ.get("PROJECT_DIR", str(Path(__file__).resolve().parents[3]))
 
     @property

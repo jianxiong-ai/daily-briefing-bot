@@ -42,6 +42,14 @@ COOKIE_INPUTS = {
     "zsxq": ("ZSXQ_COOKIE", "ZSXQ_COOKIE_FILE"),
 }
 
+REPORT_DEFAULT_ENV = {
+    # Dashboard containers intentionally do not copy local work/**/.env files.
+    # Keep behavioral defaults that are required for correct data windows here.
+    "wechat": {
+        "WECHAT_DIGEST_OFFSET_DAYS": "1",
+    },
+}
+
 
 def extract_rendered_image_path(message: str) -> str:
     matches = re.findall(r"(?:feishu image rendered path|render only output)=([^\s]+)", message or "")
@@ -79,6 +87,7 @@ def build_subscription_env(subscription: dict) -> tuple[Path, dict]:
     # developer's personal keys/cookies/webhooks never bleed into a subscription.
     base_values = {key: value for key, value in parse_env_file(report.default_env).items() if not _is_secret_key(key)}
     values = dict(base_values)
+    values.update(REPORT_DEFAULT_ENV.get(subscription["report_type"], {}))
 
     # Isolate runtime/cache/state per subscription so two subscriptions of the
     # same report type don't collide on caches or the Weibo hot-search archive.

@@ -236,6 +236,17 @@ def list_run_logs(limit: int = 50) -> list[Dict[str, Any]]:
     return [_row_to_run_log(row) for row in rows]
 
 
+def prune_run_logs_before(cutoff_iso: str) -> list[str]:
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT output_path FROM run_logs WHERE started_at < ?",
+            (cutoff_iso,),
+        ).fetchall()
+        paths = [row["output_path"] for row in rows if row["output_path"]]
+        conn.execute("DELETE FROM run_logs WHERE started_at < ?", (cutoff_iso,))
+    return paths
+
+
 def ensure_private_file(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.chmod(0o600)
