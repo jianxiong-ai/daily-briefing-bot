@@ -637,7 +637,17 @@ def send_feishu_image(webhook, image_key):
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(webhook, data=data, headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=20) as resp:
-        sys.stdout.write(resp.read().decode("utf-8"))
+        body_text = resp.read().decode("utf-8")
+    if body_text:
+        sys.stdout.write(body_text)
+    try:
+        body = json.loads(body_text) if body_text else {}
+    except json.JSONDecodeError:
+        body = {}
+    if "StatusCode" in body and body.get("StatusCode") not in (0, "0"):
+        raise RuntimeError(f"feishu image send failed: {body_text}")
+    if "code" in body and body.get("code") not in (0, "0"):
+        raise RuntimeError(f"feishu image send failed: {body_text}")
 
 
 def send_feishu_daily_image(webhook, title, sections, app_id, app_secret, output_dir=None):

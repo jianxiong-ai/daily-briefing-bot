@@ -44,7 +44,7 @@ COOKIE_INPUTS = {
 
 
 def extract_rendered_image_path(message: str) -> str:
-    matches = re.findall(r"(?:feishu image rendered path|render only output)=([^\\s]+)", message or "")
+    matches = re.findall(r"(?:feishu image rendered path|render only output)=([^\s]+)", message or "")
     return matches[-1] if matches else ""
 
 

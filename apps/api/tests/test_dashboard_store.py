@@ -108,6 +108,20 @@ class DashboardStoreTest(unittest.TestCase):
         self.assertIn(f"subscription_{second['id']}_ai", second_values["DAILY_RUNTIME_DIR"])
         self.assertNotEqual(first_values["DAILY_RUNTIME_DIR"], second_values["DAILY_RUNTIME_DIR"])
 
+    def test_extract_rendered_image_path_keeps_full_path(self):
+        from app.services.report_runner import extract_rendered_image_path
+
+        message = (
+            "[2026-06-30 22:30:06] feishu image rendered path="
+            "/data/runtime/subscription_7_weibo/images/weibo_daily_2026-06-30.png\n"
+            "[2026-06-30 22:30:07] feishu image uploaded"
+        )
+
+        self.assertEqual(
+            extract_rendered_image_path(message),
+            "/data/runtime/subscription_7_weibo/images/weibo_daily_2026-06-30.png",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
