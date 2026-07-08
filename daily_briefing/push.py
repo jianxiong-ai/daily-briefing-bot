@@ -17,7 +17,23 @@ def post_json(url, payload, timeout=20):
         body = resp.read().decode("utf-8")
     if body:
         sys.stdout.write(body)
+    validate_push_response(body)
     return body
+
+
+def validate_push_response(body):
+    if not body:
+        return
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return
+    if "StatusCode" in data and data.get("StatusCode") not in (0, "0"):
+        raise RuntimeError(f"push failed: {body}")
+    if "code" in data and data.get("code") not in (0, "0"):
+        raise RuntimeError(f"push failed: {body}")
+    if "errcode" in data and data.get("errcode") not in (0, "0"):
+        raise RuntimeError(f"push failed: {body}")
 
 
 def build_feishu_card_payload(title, sections, template="blue"):

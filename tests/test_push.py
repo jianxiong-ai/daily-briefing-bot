@@ -5,6 +5,7 @@ from daily_briefing.push import (
     build_feishu_card_payload,
     build_wechat_content,
     truncate_utf8_plain,
+    validate_push_response,
     wechat_work_markdown,
 )
 
@@ -46,6 +47,13 @@ class PushTests(unittest.TestCase):
 
         result.add_success()
         result.raise_if_empty()
+
+    def test_validate_push_response_rejects_robot_errors(self):
+        validate_push_response('{"StatusCode":0,"code":0,"msg":"success"}')
+        validate_push_response('{"errcode":0,"errmsg":"ok"}')
+        with self.assertRaises(RuntimeError) as raised:
+            validate_push_response('{"code":11232,"msg":"frequency limited"}')
+        self.assertIn("frequency limited", str(raised.exception))
 
 
 if __name__ == "__main__":

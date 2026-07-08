@@ -2,7 +2,7 @@ PYTHON ?= python3
 PYCACHE ?= /tmp/daily_briefing_pycache
 SECRET_PATTERN := (/Users/jasonjiang|open-apis/bot/[0-9a-f-]{20,}|qyapi\.weixin\.qq\.com/cgi-bin/webhook/send\?key=[0-9a-f-]{20,}|SUB=|WBPSESS|XSRF-TOKEN|sk-[A-Za-z0-9]{12,}|ak_[A-Za-z0-9]{12,})
 
-.PHONY: compile test secret-scan check list-reports
+.PHONY: compile test dashboard-api-test dashboard-web-build dashboard-check secret-scan check list-reports
 
 compile:
 	PYTHONPYCACHEPREFIX="$(PYCACHE)" $(PYTHON) -m py_compile \
@@ -18,6 +18,14 @@ compile:
 
 test:
 	PYTHONPYCACHEPREFIX="$(PYCACHE)" $(PYTHON) -m unittest discover -s tests
+
+dashboard-api-test:
+	PYTHONPYCACHEPREFIX="$(PYCACHE)" PYTHONPATH="$(PWD):$(PWD)/apps/api" $(PYTHON) -m unittest discover -s apps/api/tests
+
+dashboard-web-build:
+	cd apps/web && npm run build
+
+dashboard-check: dashboard-api-test dashboard-web-build
 
 secret-scan:
 	@matches="$$(rg -n --hidden \

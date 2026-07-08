@@ -147,7 +147,7 @@ HOT_COMMERCIAL_KEYWORDS = tuple(
 def log_progress(message):
     if LOG_PROGRESS:
         print(f"[{shanghai_now().strftime('%Y-%m-%d %H:%M:%S')}] {message}", flush=True)
-UIDS = [
+DEFAULT_UIDS = [
     "1763864272",  # 中国气象爱好者
     "1906286443",
     "1111681197",
@@ -196,7 +196,7 @@ UIDS = [
     "7810921185",  # 真探高文麒
     "1844937292",  # 大象放映室
 ]
-UID_LABELS = {
+DEFAULT_UID_LABELS = {
     "1763864272": "中国气象爱好者",
     "1906286443": "钟文泽",
     "1111681197": "来去之间",
@@ -244,6 +244,41 @@ UID_LABELS = {
     "7810921185": "真探高文麒",
     "1844937292": "大象放映室",
 }
+def parse_blogger_config(raw):
+    """Parse WEIBO_BLOGGER_IDS into (uids, labels).
+
+    Accepts UID or "UID|显示名" tokens separated by comma, semicolon or newline.
+    Empty input falls back to the built-in default blogger list.
+    """
+    uids = []
+    labels = {}
+    for token in re.split(r"[,;\n]+", raw or ""):
+        token = token.strip()
+        if not token:
+            continue
+        if "|" in token:
+            uid, _, label = token.partition("|")
+            uid, label = uid.strip(), label.strip()
+        else:
+            uid, label = token, ""
+        if not uid.isdigit():
+            continue
+        if uid not in uids:
+            uids.append(uid)
+        if label:
+            labels[uid] = label
+    return uids, labels
+
+
+_BLOGGER_CONFIG = os.environ.get("WEIBO_BLOGGER_IDS", "").strip()
+if _BLOGGER_CONFIG:
+    UIDS, _CONFIGURED_LABELS = parse_blogger_config(_BLOGGER_CONFIG)
+    UID_LABELS = {**DEFAULT_UID_LABELS, **_CONFIGURED_LABELS}
+    UID_LABELS = {uid: UID_LABELS[uid] for uid in UIDS if uid in UID_LABELS}
+else:
+    UIDS = DEFAULT_UIDS
+    UID_LABELS = DEFAULT_UID_LABELS
+
 UNIQUE_UIDS = list(dict.fromkeys(UIDS))
 EXCLUDED_AUTHORS = {"杰克涛", "谢欣哲", "蘸盐", "小特叔叔"}
 EXCLUDED_REPOST_AUTHORS = {"谢欣哲", "蘸盐", "小特叔叔"}

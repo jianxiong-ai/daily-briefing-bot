@@ -106,7 +106,7 @@ FEISHU_APP_SECRET = os.environ.get("FEISHU_APP_SECRET", "").strip()
 FEISHU_IMAGE_DAILY_ENABLED = os.environ.get("FEISHU_IMAGE_DAILY_ENABLED", "1").strip() != "0"
 
 DIGEST_DATE = os.environ.get("DIGEST_DATE", "").strip()
-WECHAT_DIGEST_OFFSET_DAYS = int(os.environ.get("WECHAT_DIGEST_OFFSET_DAYS", "0"))
+WECHAT_DIGEST_OFFSET_DAYS = int(os.environ.get("WECHAT_DIGEST_OFFSET_DAYS", "1"))
 SEND_AT_LOCAL = os.environ.get("SEND_AT_LOCAL", "").strip()
 RENDER_ONLY = os.environ.get("RENDER_ONLY", "").strip() == "1"
 RENDER_OUTPUT = os.environ.get("RENDER_OUTPUT", "").strip()

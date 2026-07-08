@@ -1,6 +1,6 @@
 # Report Matrix
 
-This project currently contains six report modules. Each module can be run with
+This project currently contains seven report modules. Each module can be run with
 the unified CLI:
 
 ```bash
@@ -53,9 +53,15 @@ the current process.
 
 ## Scheduling Status
 
-The open-source repository provides launchd templates only. Real schedules,
-credentials, and robot targets belong in private `.env` and plist files outside
-git.
+The repository supports two scheduling styles:
+
+- The subscription dashboard runs schedules inside the FastAPI process and
+  stores encrypted subscription config in SQLite.
+- macOS `launchd` templates are available for users who prefer local
+  script-first automation.
+
+Real credentials, cookies, and robot targets should stay in local `.env` files,
+dashboard subscriptions, or host-level secret storage outside git.
 
 Suggested schedule conventions:
 
