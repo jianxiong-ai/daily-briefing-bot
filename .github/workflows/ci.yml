@@ -14,5 +14,11 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
-      - name: Run checks
-        run: make check PYTHON=python
+      - name: Compile Python modules
+        run: make compile PYTHON=python
+      - name: Run unit tests
+        run: make test PYTHON=python
+      - name: List report types
+        run: make list-reports PYTHON=python
+      - name: Scan for credentials
+        run: make secret-scan PYTHON=python
