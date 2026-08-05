@@ -35,6 +35,7 @@ class WechatDailyFallbackTests(unittest.TestCase):
             patch.object(wechat_daily, "WECHAT_FOLLOW_AUTHORS", authors),
             patch.object(wechat_daily, "WECHAT_FOLLOW_FETCH_WORKERS", 2),
             patch.object(wechat_daily, "WECHAT_FOLLOW_MAX_PAGES", 1),
+            patch.object(wechat_daily, "REDFOX_API_KEY", "test-key"),
             patch.object(wechat_daily, "get_redfox_raw_cache", return_value=None),
             patch.object(wechat_daily, "set_redfox_raw_cache"),
             patch.object(wechat_daily, "redfox_post_json", side_effect=fake_redfox_post),
