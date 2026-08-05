@@ -352,47 +352,53 @@ def fetch_follow_author_articles(skip_authors=None):
             return []
         raw_items = []
         max_pages = max(1, WECHAT_FOLLOW_MAX_PAGES)
-        for page_index in range(max_pages):
-            offset = page_index * 20
-            payload = {
-                "account": author["account"],
-                "accountName": author.get("accountName", ""),
-                "offset": offset,
-                "sortType": "_2",
-                "publishTimeStart": start,
-                "publishTimeEnd": end,
-                "_cache_url": REDFOX_WORK_LIST_URL,
-            }
-            cached = get_redfox_raw_cache(payload)
-            if cached is not None:
-                data = cached
-                page_list = data.get("list", []) or []
-                log_progress(
-                    f"redfox author cache hit account={author['account']} offset={offset} count={len(page_list)}"
-                )
-            else:
-                body = redfox_post_json(REDFOX_WORK_LIST_URL, payload)
-                if body.get("code") not in {2000, 200}:
-                    raise RuntimeError(
-                        f"RedFox author API error account={author['account']}: {body.get('msg') or body.get('code')}"
+        try:
+            for page_index in range(max_pages):
+                offset = page_index * 20
+                payload = {
+                    "account": author["account"],
+                    "accountName": author.get("accountName", ""),
+                    "offset": offset,
+                    "sortType": "_2",
+                    "publishTimeStart": start,
+                    "publishTimeEnd": end,
+                    "_cache_url": REDFOX_WORK_LIST_URL,
+                }
+                cached = get_redfox_raw_cache(payload)
+                if cached is not None:
+                    data = cached
+                    page_list = data.get("list", []) or []
+                    log_progress(
+                        f"redfox author cache hit account={author['account']} offset={offset} count={len(page_list)}"
                     )
-                data = body.get("data") or {}
-                page_list = data.get("list", []) or []
-                set_redfox_raw_cache(
-                    payload,
-                    {
-                        "list": page_list,
-                        "total": data.get("total"),
-                        "hasMore": data.get("hasMore"),
-                    },
-                )
-                log_progress(
-                    f"redfox author loaded account={author['account']} offset={offset} count={len(page_list)} "
-                    f"total={data.get('total')} hasMore={data.get('hasMore')}"
-                )
-            raw_items.extend(page_list)
-            if not should_fetch_next_page(data, len(raw_items)):
-                break
+                else:
+                    body = redfox_post_json(REDFOX_WORK_LIST_URL, payload)
+                    if body.get("code") not in {2000, 200}:
+                        raise RuntimeError(
+                            f"RedFox author API error account={author['account']}: {body.get('msg') or body.get('code')}"
+                        )
+                    data = body.get("data") or {}
+                    page_list = data.get("list", []) or []
+                    set_redfox_raw_cache(
+                        payload,
+                        {
+                            "list": page_list,
+                            "total": data.get("total"),
+                            "hasMore": data.get("hasMore"),
+                        },
+                    )
+                    log_progress(
+                        f"redfox author loaded account={author['account']} offset={offset} count={len(page_list)} "
+                        f"total={data.get('total')} hasMore={data.get('hasMore')}"
+                    )
+                raw_items.extend(page_list)
+                if not should_fetch_next_page(data, len(raw_items)):
+                    break
+        except Exception as exc:
+            # A single followed account may be absent from RedFox. Keep the
+            # rest of the followed accounts and the hot-article report intact.
+            log_progress(f"skip unavailable follow author account={author['account']}: {type(exc).__name__}: {exc}")
+            return []
         return [normalize_follow_article(raw, author) for raw in raw_items]
 
     all_items = []

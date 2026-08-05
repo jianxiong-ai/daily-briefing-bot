@@ -139,6 +139,24 @@ class AIDailyDateTests(unittest.TestCase):
         self.assertEqual(cleaned["topics"], [{"topic": "模型进展", "summary": "新模型提升了工具调用能力。"}])
         self.assertEqual(cleaned["signals"], ["Agent工具链继续完善。"])
 
+    def test_optional_xhs_failure_keeps_aihot_items(self):
+        aihot_item = {
+            "id": "aihot-1",
+            "title": "新模型发布",
+            "summary": "模型能力得到更新。",
+            "source": "AIHot",
+            "publishedAt": "2026-06-23T09:00:00+08:00",
+            "score": 80,
+        }
+        with (
+            patch.object(ai_daily, "DIGEST_DATE", "2026-06-23"),
+            patch.object(ai_daily, "REDFOX_API_KEY", "test-key"),
+            patch.object(ai_daily, "fetch_aihot_items", return_value=[aihot_item]),
+            patch.object(ai_daily, "fetch_redfox_list", side_effect=RuntimeError("source unavailable")),
+        ):
+            items = ai_daily.load_ai_items()
+        self.assertEqual([item["title"] for item in items], ["新模型发布"])
+
 
 if __name__ == "__main__":
     unittest.main()

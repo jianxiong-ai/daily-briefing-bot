@@ -472,8 +472,6 @@ def normalize_xhs(raw):
 
 
 def load_ai_items():
-    if not REDFOX_API_KEY:
-        raise RuntimeError("missing REDFOX_API_KEY")
     day = digest_day().strftime("%Y-%m-%d")
     next_day = (digest_day() + timedelta(days=1)).strftime("%Y-%m-%d")
     items = []
@@ -483,21 +481,31 @@ def load_ai_items():
         if item:
             items.append(item)
 
-    xhs_payload = {
-        "_channel": "xhs",
-        "_url": XHS_AI_URL,
-        "keyword": AI_XHS_KEYWORD,
-        "pageNum": 1,
-        "pageSize": AI_XHS_PAGE_SIZE,
-        "source": "AI小红书信息源-Codex",
-    }
-    if AI_XHS_USE_DATE_RANGE:
-        xhs_payload["startTime"] = day
-        xhs_payload["endTime"] = next_day
-    for raw in fetch_redfox_list(XHS_AI_URL, xhs_payload):
-        item = normalize_xhs(raw)
-        if item:
-            items.append(item)
+    if not REDFOX_API_KEY:
+        log_progress("skip optional xhs source: missing REDFOX_API_KEY")
+    else:
+        xhs_payload = {
+            "_channel": "xhs",
+            "_url": XHS_AI_URL,
+            "keyword": AI_XHS_KEYWORD,
+            "pageNum": 1,
+            "pageSize": AI_XHS_PAGE_SIZE,
+            "source": "AI小红书信息源-Codex",
+        }
+        if AI_XHS_USE_DATE_RANGE:
+            xhs_payload["startTime"] = day
+            xhs_payload["endTime"] = next_day
+        try:
+            xhs_items = fetch_redfox_list(XHS_AI_URL, xhs_payload)
+        except Exception as exc:
+            # AIHot is the primary feed. A missing or temporarily unavailable
+            # supplementary RedFox source must not cancel the whole daily brief.
+            log_progress(f"skip optional xhs source: {type(exc).__name__}: {exc}")
+            xhs_items = []
+        for raw in xhs_items:
+            item = normalize_xhs(raw)
+            if item:
+                items.append(item)
 
     seen = set()
     deduped = []
