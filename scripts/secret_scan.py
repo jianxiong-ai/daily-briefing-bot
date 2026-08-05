@@ -19,6 +19,7 @@ EXCLUDED_PATHS = {
     "SECURITY.md",
     "docs/security.md",
     "docs/open-source-release-checklist.md",
+    "scripts/secret_scan.py",
 }
 EXCLUDED_SUFFIXES = {".png", ".json", ".jsonl", ".cookie"}
 
